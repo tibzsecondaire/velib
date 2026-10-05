@@ -37,6 +37,9 @@ doc = [
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
 ]
+analysis = [
+    "plotly>=7.1.0",
+]
 
 [tool.uv]
 environments = [

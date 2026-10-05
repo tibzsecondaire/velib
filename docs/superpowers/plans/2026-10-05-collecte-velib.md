@@ -2133,10 +2133,10 @@ from velib.heatmap import fill_rate_by_slot
 
 SCHEMA = {
     "fetched_at": pl.Datetime("us", "UTC"),
-    "station_id": pl.Int64,
-    "mechanical": pl.Int16,
-    "ebike": pl.Int16,
-    "docks": pl.Int16,
+    "station_id": pl.Int64(),
+    "mechanical": pl.Int16(),
+    "ebike": pl.Int16(),
+    "docks": pl.Int16(),
 }
 
 
