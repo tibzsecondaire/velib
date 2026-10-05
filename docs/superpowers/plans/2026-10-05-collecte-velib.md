@@ -1344,13 +1344,13 @@ def test_compact_day_writes_typed_columns(repo: Path) -> None:
         {
             "fetched_at": pl.Datetime("us", "UTC"),
             "feed_updated_at": pl.Datetime("us", "UTC"),
-            "station_id": pl.Int64,
-            "mechanical": pl.Int16,
-            "ebike": pl.Int16,
-            "docks": pl.Int16,
-            "is_installed": pl.Boolean,
-            "is_renting": pl.Boolean,
-            "is_returning": pl.Boolean,
+            "station_id": pl.Int64(),
+            "mechanical": pl.Int16(),
+            "ebike": pl.Int16(),
+            "docks": pl.Int16(),
+            "is_installed": pl.Boolean(),
+            "is_renting": pl.Boolean(),
+            "is_returning": pl.Boolean(),
             "last_reported": pl.Datetime("us", "UTC"),
         }
     )
