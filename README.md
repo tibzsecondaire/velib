@@ -72,3 +72,8 @@ velib/
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## License
+
+The code is released under the [MIT license](./LICENSE). The collected data, published in
+`velib-data`, is released under the ODbL 1.0.

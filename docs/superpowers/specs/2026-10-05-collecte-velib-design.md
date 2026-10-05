@@ -239,7 +239,9 @@ Ces chiffres sont des estimations, à vérifier après une semaine :
 
 Si la croissance mesurée dépasse 3 Mo par jour, on revoit la fréquence des relevés ou le stockage de l'historique ancien.
 
-## Licence des données
+## Licences
+
+Le code de `velib` est sous licence MIT.
 
 Le README de `velib-data` cite la source : les flux GBFS de Vélib' Métropole, publiés en open data.
 La base dérivée est publiée sous ODbL 1.0, comme le jeu de la Ville de Paris sur data.gouv.fr.

@@ -7,6 +7,7 @@ name = "velib"
 version = "0.0.1"
 description = "Analyse des données Vélib' Métropole."
 readme = "README.md"
+license = "MIT"
 requires-python = "==3.12.*"
 authors = [
     { name = "tibzsecondaire" },
