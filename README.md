@@ -13,6 +13,12 @@ lists the available feeds:
 - `station_information`: static station data (location, capacity).
 - `station_status`: real-time bike and dock availability per station.
 
+## Data collection
+
+`velib-collect snapshot --output-dir raw` downloads the live status of every station and writes
+`raw/station_status.csv` and `raw/snapshot_meta.json`. GitHub Actions runs it every 5 minutes in
+[tibzsecondaire/velib-data](https://github.com/tibzsecondaire/velib-data), which publishes the history.
+
 ## Getting started
 
 ### Prerequisites
