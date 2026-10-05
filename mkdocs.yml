@@ -1,0 +1,28 @@
+site_name: Vélib' trends
+site_description: Observe the availability of the Vélib' Métropole bike-sharing stations in Paris.
+site_url: https://tibzsecondaire.github.io/velib/
+repo_url: https://github.com/tibzsecondaire/velib
+repo_name: tibzsecondaire/velib
+copyright: Code under the MIT license · data under the ODbL 1.0
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+
+nav:
+  - Home: index.md
+  - Live map: map.md
+  - Data: data.md
+
+exclude_docs: |
+  superpowers/
+
+extra_css:
+  - stylesheets/map.css
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - tables

@@ -1,16 +1,16 @@
-# velib
+# Vélib' trends
 
-Analyse des données Vélib' Métropole.
+Observe how the Vélib' Métropole bike-sharing stations of Paris fill up and empty out.
 
-Documentation goes here.
+Every 5 minutes, a GitHub Actions job records the status of every station from the official open
+data feeds. The history is published in
+[velib-data](https://github.com/tibzsecondaire/velib-data), and the code lives in
+[velib](https://github.com/tibzsecondaire/velib).
 
-## Data source
+## What you can find here
 
-[Vélib' Métropole GBFS open data](https://www.velib-metropole.fr/donnees-open-data-gbfs-du-service-velib-metropole).
-The auto-discovery feed
-<https://velib-metropole-opendata.smovengo.cloud/opendata/Velib_Metropole/gbfs.json>
-lists the available feeds:
+- [Live map](map.md): every station, coloured by how full it is in the latest snapshot.
+- [Data](data.md): where the data comes from, what the files contain and how to load them.
 
-- `system_information`: system metadata.
-- `station_information`: static station data (location, capacity).
-- `station_status`: real-time bike and dock availability per station.
+Analyses of the trends will follow once a few weeks of history have been collected, then
+experiments with machine learning, such as predicting the availability of bikes.
