@@ -34,7 +34,7 @@ lint = [
     "codespell>=2.3.0",
 ]
 doc = [
-    "mkdocs>=1.6.0",
+    "mkdocs>=1.6.0,<2",
     "mkdocs-material>=9.5.0",
 ]
 analysis = [

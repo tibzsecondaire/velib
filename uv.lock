@@ -934,7 +934,7 @@ dev = [
     { name = "pytest-cov", specifier = ">=5.0.0" },
 ]
 doc = [
-    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs", specifier = ">=1.6.0,<2" },
     { name = "mkdocs-material", specifier = ">=9.5.0" },
 ]
 lint = [
