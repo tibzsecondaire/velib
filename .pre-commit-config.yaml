@@ -28,6 +28,8 @@ repos:
     hooks:
       - id: codespell
         additional_dependencies: [tomli]
+        # Design docs and plans are written in French; codespell only knows English.
+        exclude: ^docs/superpowers/
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.4.0
