@@ -1,4 +1,4 @@
-.PHONY: help install sync lock lint format test test-unit test-integration clean
+.PHONY: help install sync lock lint format test test-unit test-integration test-js clean
 
 PROJECT := velib
 
@@ -12,6 +12,7 @@ help:
 	@echo "  test              Full test suite with coverage"
 	@echo "  test-unit         Unit tests only"
 	@echo "  test-integration  Integration tests only"
+	@echo "  test-js           Map JavaScript tests (node --test)"
 	@echo "  clean             Remove caches and build artifacts"
 
 install:
@@ -31,12 +32,16 @@ format:
 
 test:
 	uv run pytest
+	node --test "tests/js/*.test.mjs"
 
 test-unit:
 	uv run pytest tests/unit
 
 test-integration:
 	uv run pytest tests/integration
+
+test-js:
+	node --test "tests/js/*.test.mjs"
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage coverage.xml htmlcov
