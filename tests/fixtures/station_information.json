@@ -1,0 +1,209 @@
+{
+  "lastUpdatedOther": 1791231090,
+  "ttl": 3600,
+  "data": {
+    "stations": [
+      {
+        "station_id": 6245,
+        "stationCode": "1116",
+        "name": "Ventadour - Opéra",
+        "lat": 48.866810653323,
+        "lon": 2.3343884482519,
+        "capacity": 27,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6293,
+        "stationCode": "2008",
+        "name": "Mairie du 2ème",
+        "lat": 48.8672190355135,
+        "lon": 2.3404625437747044,
+        "capacity": 28,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6294,
+        "stationCode": "4002",
+        "name": "Marché aux fleurs",
+        "lat": 48.855258115391,
+        "lon": 2.3473754525185,
+        "capacity": 23,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6295,
+        "stationCode": "5107",
+        "name": "Pontoise - La Tournelle",
+        "lat": 48.850458009188,
+        "lon": 2.3524542754922,
+        "capacity": 23,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6296,
+        "stationCode": "6001",
+        "name": "Institut de France",
+        "lat": 48.857615678565,
+        "lon": 2.3358313530377,
+        "capacity": 34,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6297,
+        "stationCode": "9019",
+        "name": "Victor Massé - Jean-Baptiste Pigalle",
+        "lat": 48.8811043724,
+        "lon": 2.3366955667734,
+        "capacity": 18,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6298,
+        "stationCode": "10033",
+        "name": "Gare du Nord - Saint-Vincent de Paul",
+        "lat": 48.880955741648,
+        "lon": 2.3524305148385,
+        "capacity": 24,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6352,
+        "stationCode": "4018",
+        "name": "Saint-Bon - Rivoli",
+        "lat": 48.857999643315,
+        "lon": 2.3502172809763,
+        "capacity": 31,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6354,
+        "stationCode": "13028",
+        "name": "Gouthière - Poterne des Peupliers",
+        "lat": 48.820507,
+        "lon": 2.351342,
+        "capacity": 33,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6385,
+        "stationCode": "19019",
+        "name": "Petit - Manin",
+        "lat": 48.886506875343,
+        "lon": 2.3938155401308,
+        "capacity": 22,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6399,
+        "stationCode": "19016",
+        "name": "Hautpoul - Jean Jaurès",
+        "lat": 48.886393679436,
+        "lon": 2.3865414544355,
+        "capacity": 32,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6497,
+        "stationCode": "15027",
+        "name": "Duhamel - André Gide",
+        "lat": 48.8365662244334,
+        "lon": 2.312707121097412,
+        "capacity": 20,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6512,
+        "stationCode": "20027",
+        "name": "Porte de Ménilmontant",
+        "lat": 48.8691543609174,
+        "lon": 2.40932246879487,
+        "capacity": 15,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 6515,
+        "stationCode": "9012",
+        "name": "Rougemont - Poissonnière",
+        "lat": 48.871611569354755,
+        "lon": 2.345873080193996,
+        "capacity": 44,
+        "rental_methods": [
+          "CREDITCARD"
+        ],
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 7234,
+        "stationCode": "15120",
+        "name": "Colonel Pierre Avia",
+        "lat": 48.8296843300915,
+        "lon": 2.275342586850291,
+        "capacity": 29,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 7247,
+        "stationCode": "11021",
+        "name": "Charonne - Pierre Bayle",
+        "lat": 48.858445054262,
+        "lon": 2.3903981223891,
+        "capacity": 23,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 7254,
+        "stationCode": "5005",
+        "name": "Gay Lussac - Saint-Jacques",
+        "lat": 48.844730256132,
+        "lon": 2.3419239448664,
+        "capacity": 42,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 7261,
+        "stationCode": "9036",
+        "name": "Athènes - Clichy",
+        "lat": 48.878113787876,
+        "lon": 2.32956021945824,
+        "capacity": 20,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 7295,
+        "stationCode": "6010",
+        "name": "Chevreuse - Montparnasse",
+        "lat": 48.841739161231,
+        "lon": 2.3315522167367,
+        "capacity": 15,
+        "station_opening_hours": null
+      },
+      {
+        "station_id": 7304,
+        "stationCode": "16015",
+        "name": "Bassano -  Iéna",
+        "lat": 48.868144510482075,
+        "lon": 2.296149600985935,
+        "capacity": 15,
+        "station_opening_hours": null
+      }
+    ]
+  }
+}
