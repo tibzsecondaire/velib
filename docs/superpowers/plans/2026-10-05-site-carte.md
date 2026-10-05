@@ -660,7 +660,7 @@ day = pl.read_parquet(url)
   bottom: 1.75rem;
   padding: 0.5rem 0.75rem;
   border-radius: 0.2rem;
-  background: rgb(255 255 255 / 90%);
+  background: rgb(255 255 255 / 96%);
   box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
   color: #222;
   font-size: 0.65rem;
@@ -690,6 +690,33 @@ day = pl.read_parquet(url)
 .velib-map .maplibregl-popup-content {
   color: #222;
   font-size: 0.7rem;
+}
+
+/* Material styles every <details> in a page as an admonition: keep the MapLibre attribution plain. */
+.md-typeset .velib-map .maplibregl-ctrl-attrib {
+  margin: 10px;
+  border: 0;
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.md-typeset .velib-map .maplibregl-ctrl-attrib-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 12px;
+  background-color: rgb(255 255 255 / 50%);
+  font-weight: normal;
+}
+
+.md-typeset .velib-map .maplibregl-ctrl-attrib-button::before,
+.md-typeset .velib-map .maplibregl-ctrl-attrib-button::after {
+  display: none;
 }
 ```
 
