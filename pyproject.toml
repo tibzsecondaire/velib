@@ -1,0 +1,136 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "velib"
+version = "0.0.1"
+description = "Analyse des données Vélib' Métropole."
+readme = "README.md"
+requires-python = "==3.12.*"
+authors = [
+    { name = "tibzsecondaire" },
+]
+dependencies = [
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ipython>=8.0.0",
+]
+lint = [
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+    "ruff>=0.6.0",
+    "codespell>=2.3.0",
+]
+doc = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+]
+
+[tool.uv]
+environments = [
+    "sys_platform == 'linux'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/velib"]
+
+# ===== ruff =====
+# Replaces black, isort, flake8, pyupgrade, and pydocstyle.
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "A",    # flake8-builtins
+    "C4",   # flake8-comprehensions
+    "PIE",  # flake8-pie
+    "SIM",  # flake8-simplify
+    "ARG",  # flake8-unused-arguments
+    "PTH",  # flake8-use-pathlib
+    "D",    # pydocstyle
+    "RUF",  # ruff-specific rules
+    "T20",  # flake8-print (forbids print)
+]
+ignore = [
+    "D100",  # undocumented public module
+    "D104",  # undocumented public package
+    "D107",  # undocumented public __init__
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D", "ARG", "T20"]
+"conf/**/*.py" = ["D"]
+"notebooks/**/*.py" = ["D", "T20"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# ===== mypy =====
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+disallow_untyped_decorators = true
+show_error_codes = true
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# ===== pytest =====
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/velib",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=xml:coverage.xml",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/velib"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.codespell]
+skip = "*.lock,*.min.js,*.min.css,./notebooks,./data,./.venv,./.git"

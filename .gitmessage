@@ -1,0 +1,29 @@
+# <type>(<scope>): <subject>  (keep under 60 chars ----------|)
+#
+# ----------------------------------------------------------
+# Body (wrap at 72 chars) -- explain WHY, not WHAT.
+# ----------------------------------------------------------
+#
+#
+# ----------------------------------------------------------
+# Footer -- issue refs and breaking changes
+#
+#   Closes #123
+#   BREAKING CHANGE: <description>
+# ----------------------------------------------------------
+#
+# Allowed types:
+#   feat       A new feature
+#   fix        A bug fix
+#   docs       Documentation only
+#   style      Formatting, no behavior change
+#   refactor   Neither feature nor bug fix
+#   perf       Performance improvement
+#   test       Add or correct tests
+#   build      Build system / dependencies
+#   ci         CI configuration
+#
+# Subject rules:
+#   - imperative present ("add" not "added")
+#   - lowercase first letter
+#   - no trailing period
