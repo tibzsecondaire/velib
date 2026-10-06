@@ -1,8 +1,8 @@
-"""Write a map that replays the fill rate of every station over a period, slot by slot.
+"""Write a map that replays every station over a period, 15 minutes by 15 minutes by default.
 
 Usage:
     uv run python scripts/replay_map.py --source kaggle
-    uv run python scripts/replay_map.py --source velib-data --start 2026-10-06 --slot 30m
+    uv run python scripts/replay_map.py --source velib-data --start 2026-10-06 --slot 1h
     uv run python scripts/replay_map.py --source kaggle --serve
 
 The page opens straight from the file in Safari. Chromium-based browsers refuse to start the
@@ -53,7 +53,7 @@ def main() -> None:
     )
     parser.add_argument("--start", type=date.fromisoformat, default=None, help="First Paris day.")
     parser.add_argument("--end", type=date.fromisoformat, default=None, help="Last Paris day.")
-    parser.add_argument("--slot", default="1h", help="Slot length, for example 30m or 1h.")
+    parser.add_argument("--slot", default="15m", help="Slot length, for example 15m or 1h.")
     parser.add_argument(
         "--serve", action="store_true", help="Open the page through a local web server."
     )

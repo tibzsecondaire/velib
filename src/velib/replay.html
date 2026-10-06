@@ -10,42 +10,66 @@
   body { margin: 0; background: #fafafa; color: #222; }
   header { padding: 0.75rem 1rem 0.25rem; }
   h1 { margin: 0 0 0.25rem; font-size: 1.1rem; }
-  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; }
-  #play { padding: 0.35rem 0.8rem; border: 1px solid #888; border-radius: 4px; background: #fff; font: inherit; cursor: pointer; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.5rem 1rem; }
+  button, select { padding: 0.35rem 0.6rem; border: 1px solid #888; border-radius: 4px; background: #fff; color: inherit; font: inherit; cursor: pointer; }
   #time { flex: 1 1 18rem; }
   #time-label { min-width: 9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  #city { color: #555; }
-  #spark { display: block; width: calc(100% - 2rem); height: 56px; margin: 0 1rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+  .modes { display: inline-flex; margin: 0; padding: 0; border: 1px solid #888; border-radius: 4px; overflow: hidden; }
+  .modes label { padding: 0.35rem 0.7rem; background: #fff; cursor: pointer; }
+  .modes label + label { border-left: 1px solid #888; }
+  .modes input { position: absolute; opacity: 0; pointer-events: none; }
+  .modes label:has(input:checked) { background: #3b6ea5; color: #fff; }
+  .modes label:has(input:focus-visible) { outline: 2px solid #1d3f66; outline-offset: -3px; }
+  #stats { color: #555; font-variant-numeric: tabular-nums; }
+  .timeline { position: relative; margin: 0 1rem 0.5rem; padding-bottom: 1rem; }
+  #spark { display: block; box-sizing: border-box; width: 100%; height: 56px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+  #days { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  #days span { position: absolute; top: 0; bottom: 0; display: flex; align-items: flex-end; padding-left: 3px; border-left: 1px solid #e3e3e3; color: #777; font-size: 0.7rem; line-height: 1rem; white-space: nowrap; }
   .wrapper { position: relative; }
-  #map { height: calc(100vh - 12rem); min-height: 420px; }
-  .legend { position: absolute; left: 0.75rem; bottom: 1.75rem; padding: 0.5rem 0.75rem; border-radius: 4px; background: rgb(255 255 255 / 96%); box-shadow: 0 1px 4px rgb(0 0 0 / 20%); font-size: 0.75rem; line-height: 1.4; }
-  .legend .bar { width: 9rem; height: 0.5rem; margin: 0.25rem 0; border-radius: 3px; background: linear-gradient(to right, #d7191c 0%, #fee08b 50%, #1a9641 100%); }
-  .legend .labels { display: flex; justify-content: space-between; }
+  #map { height: calc(100vh - 16rem); min-height: 420px; }
+  .legend { position: absolute; left: 0.75rem; bottom: 1.75rem; max-width: 15rem; padding: 0.5rem 0.75rem; border-radius: 4px; background: rgb(255 255 255 / 96%); box-shadow: 0 1px 4px rgb(0 0 0 / 20%); font-size: 0.75rem; line-height: 1.4; }
+  .legend .bar { width: 10rem; height: 0.5rem; margin: 0.25rem 0; border: 1px solid #eee; border-radius: 3px; }
+  .legend .labels { display: flex; justify-content: space-between; width: 10rem; }
   .notice { position: absolute; top: 1rem; left: 1rem; right: 4rem; z-index: 3; padding: 0.75rem 1rem; border: 1px solid #e0c36b; border-radius: 4px; background: #fff3cd; line-height: 1.4; }
 </style>
 </head>
 <body>
 <header>
   <h1>__TITLE__</h1>
-  <div>Chaque point est une station, colorée selon son taux de remplissage moyen sur le créneau. Faites glisser le curseur ou lancez la lecture. Cliquez sur la courbe pour aller à un moment précis, et sur une station pour voir son détail.</div>
+  <div>Choisissez l’affichage : chaque station colorée selon son remplissage, ou une heatmap des vélos disponibles ou des stations sans vélo. Faites glisser le curseur ou lancez la lecture. Cliquez sur la courbe pour aller à un moment précis, et sur une station pour voir son détail.</div>
 </header>
 <div class="controls">
   <button id="play" type="button">▶ Lecture</button>
+  <select id="speed" aria-label="Vitesse de lecture">
+    <option value="1">1 h par seconde</option>
+    <option value="3" selected>3 h par seconde</option>
+    <option value="6">6 h par seconde</option>
+  </select>
   <input id="time" type="range" min="0" value="0" step="1" aria-label="Créneau affiché">
   <span id="time-label"></span>
-  <span id="city"></span>
 </div>
-<svg id="spark" viewBox="0 0 1000 56" preserveAspectRatio="none" aria-label="Remplissage moyen de la ville sur la période">
-  <polyline id="spark-line" fill="none" stroke="#3b6ea5" stroke-width="2" vector-effect="non-scaling-stroke"></polyline>
-  <line id="spark-cursor" x1="0" x2="0" y1="0" y2="56" stroke="#d7191c" stroke-width="2" vector-effect="non-scaling-stroke"></line>
-</svg>
+<div class="controls">
+  <fieldset class="modes" aria-label="Affichage">
+    <label><input type="radio" name="mode" value="stations" checked>Stations</label>
+    <label><input type="radio" name="mode" value="bikes">Heatmap des vélos</label>
+    <label><input type="radio" name="mode" value="empty">Heatmap des stations vides</label>
+  </fieldset>
+  <span id="stats"></span>
+</div>
+<div class="timeline">
+  <svg id="spark" viewBox="0 0 1000 56" preserveAspectRatio="none" aria-label="Remplissage moyen de la ville sur la période">
+    <polyline id="spark-line" fill="none" stroke="#3b6ea5" stroke-width="2" vector-effect="non-scaling-stroke"></polyline>
+    <line id="spark-cursor" x1="0" x2="0" y1="0" y2="56" stroke="#d7191c" stroke-width="2" vector-effect="non-scaling-stroke"></line>
+  </svg>
+  <div id="days"></div>
+</div>
 <div class="wrapper">
   <div id="map"></div>
   <div class="legend">
-    <strong>Remplissage</strong>
-    <div class="bar"></div>
-    <div class="labels"><span>vide</span><span>moitié</span><span>plein</span></div>
-    <div>gris : pas de donnée</div>
+    <strong id="legend-title"></strong>
+    <div class="bar" id="legend-bar"></div>
+    <div class="labels" id="legend-labels"></div>
+    <div id="legend-note"></div>
   </div>
   <div id="notice" class="notice" hidden>Ce navigateur refuse de lancer la carte depuis un fichier local. Ouvrez la page dans Safari, ou relancez <code>scripts/replay_map.py</code> avec l’option <code>--serve</code> pour l’ouvrir depuis un petit serveur local.</div>
 </div>
@@ -53,19 +77,61 @@
 <script type="module">
 import { Map as MapLibreMap, NavigationControl, Popup } from "__MAPLIBRE__maplibre-gl.mjs";
 
+const MISSING = 255;
+const MODES = {
+  stations: {
+    layer: null,
+    title: "Remplissage des stations",
+    bar: "linear-gradient(to right, #d7191c 0%, #fee08b 50%, #1a9641 100%)",
+    labels: ["vide", "moitié", "plein"],
+    note: ["gris : pas de donnée"],
+  },
+  bikes: {
+    layer: "heat-bikes",
+    title: "Vélos disponibles",
+    bar: "linear-gradient(to right, rgb(166 217 106 / 0%), #66bd63 45%, #1a9850 75%, #00582c)",
+    labels: ["peu", "beaucoup"],
+    note: ["densité de vélos autour de chaque endroit", "zoomez pour voir les stations"],
+  },
+  empty: {
+    layer: "heat-empty",
+    title: "Stations sans vélo",
+    bar: "linear-gradient(to right, rgb(253 174 97 / 0%), #f46d43 45%, #d73027 75%, #a50026)",
+    labels: ["isolées", "regroupées"],
+    note: ["stations vides en moyenne sur le créneau", "zoomez pour voir les stations"],
+  },
+};
+const HEAT_LAYERS = ["heat-bikes", "heat-empty"];
+
 const data = JSON.parse(document.getElementById("replay-data").textContent);
+const steps = data.times.length;
+const last = steps - 1;
+const rates = unpack(data.rates);
+const bikes = unpack(data.bikes);
 const slider = document.getElementById("time");
 const label = document.getElementById("time-label");
-const city = document.getElementById("city");
+const stats = document.getElementById("stats");
 const play = document.getElementById("play");
+const speed = document.getElementById("speed");
 const spark = document.getElementById("spark");
 const cursor = document.getElementById("spark-cursor");
-const last = data.times.length - 1;
 slider.max = String(last);
+let mode = document.querySelector('input[name="mode"]:checked').value;
+
+function unpack(text) {
+  const binary = atob(text);
+  const values = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    values[index] = binary.charCodeAt(index);
+  }
+  return values;
+}
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (char) => ESCAPES[char]);
 const xOf = (step) => (last === 0 ? 0 : (step / last) * 1000);
+const count = (value) => value.toLocaleString("fr-FR");
+const element = (tag, text) => Object.assign(document.createElement(tag), { textContent: text });
 
 const known = data.city.filter((value) => value !== null);
 const low = Math.min(...known);
@@ -74,6 +140,14 @@ const points = data.city
   .map((value, step) => (value === null ? null : `${xOf(step)},${52 - ((value - low) / (high - low || 1)) * 48}`))
   .filter((point) => point !== null);
 document.getElementById("spark-line").setAttribute("points", points.join(" "));
+
+const labelEvery = Math.max(1, Math.ceil(data.days.length / 21));
+for (const [index, [step, text]] of data.days.entries()) {
+  const mark = document.createElement("span");
+  mark.style.left = `${xOf(step) / 10}%`;
+  mark.textContent = index % labelEvery === 0 ? text : "";
+  document.getElementById("days").append(mark);
+}
 
 const map = new MapLibreMap({
   container: "map",
@@ -93,17 +167,52 @@ map.on("error", (event) => {
 function show(step) {
   slider.value = String(step);
   label.textContent = data.times[step];
-  const mean = data.city[step];
-  city.textContent = mean === null ? "" : `Remplissage moyen de la ville : ${Math.round(mean * 100)} %`;
   cursor.setAttribute("x1", xOf(step));
   cursor.setAttribute("x2", xOf(step));
-  if (!map.getSource("stations")) {
+  const ready = Boolean(map.getSource("stations"));
+  let total = 0;
+  let empty = 0;
+  for (let index = 0; index < data.stations.length; index += 1) {
+    const offset = index * steps + step;
+    const rate = rates[offset];
+    const bikesHere = bikes[offset];
+    if (bikesHere !== MISSING) {
+      total += bikesHere;
+      empty += bikesHere === 0 ? 1 : 0;
+    }
+    if (ready) {
+      map.setFeatureState(
+        { source: "stations", id: index },
+        { rate: rate === MISSING ? -1 : rate / 100, bikes: bikesHere === MISSING ? -1 : bikesHere },
+      );
+    }
+  }
+  const mean = data.city[step];
+  stats.textContent = [
+    mean === null ? null : `Remplissage moyen : ${Math.round(mean * 100)} %`,
+    `Vélos disponibles : ${count(total)}`,
+    `Stations sans vélo : ${count(empty)}`,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+}
+
+function setMode(next) {
+  mode = next;
+  const config = MODES[mode];
+  document.getElementById("legend-title").textContent = config.title;
+  document.getElementById("legend-bar").style.background = config.bar;
+  document.getElementById("legend-labels").replaceChildren(...config.labels.map((text) => element("span", text)));
+  document.getElementById("legend-note").replaceChildren(...config.note.map((text) => element("div", text)));
+  if (!map.getLayer("stations")) {
     return;
   }
-  data.rates.forEach((values, index) => {
-    const value = values[step];
-    map.setFeatureState({ source: "stations", id: index }, { rate: value < 0 ? -1 : value / 100 });
-  });
+  for (const id of HEAT_LAYERS) {
+    map.setLayoutProperty(id, "visibility", id === config.layer ? "visible" : "none");
+  }
+  const opacity = config.layer === null ? 0.9 : ["interpolate", ["linear"], ["zoom"], 13.5, 0, 15, 0.9];
+  map.setPaintProperty("stations", "circle-opacity", opacity);
+  map.setPaintProperty("stations", "circle-stroke-opacity", opacity);
 }
 
 map.on("load", () => {
@@ -117,6 +226,40 @@ map.on("load", () => {
         geometry: { type: "Point", coordinates: [lon, lat] },
         properties: { name },
       })),
+    },
+  });
+  const radius = ["interpolate", ["exponential", 2], ["zoom"], 10, 9, 15, 288];
+  const fade = ["interpolate", ["linear"], ["zoom"], 14, 0.85, 16, 0];
+  map.addLayer({
+    id: "heat-bikes",
+    type: "heatmap",
+    source: "stations",
+    layout: { visibility: "none" },
+    paint: {
+      "heatmap-weight": ["/", ["max", ["coalesce", ["feature-state", "bikes"], 0], 0], 25],
+      "heatmap-radius": radius,
+      "heatmap-intensity": 0.4,
+      "heatmap-color": [
+        "interpolate", ["linear"], ["heatmap-density"],
+        0, "rgba(166, 217, 106, 0)", 0.15, "rgba(166, 217, 106, 0.55)", 0.45, "#66bd63", 0.75, "#1a9850", 1, "#00582c",
+      ],
+      "heatmap-opacity": fade,
+    },
+  });
+  map.addLayer({
+    id: "heat-empty",
+    type: "heatmap",
+    source: "stations",
+    layout: { visibility: "none" },
+    paint: {
+      "heatmap-weight": ["case", ["==", ["coalesce", ["feature-state", "bikes"], -1], 0], 1, 0],
+      "heatmap-radius": radius,
+      "heatmap-intensity": 1,
+      "heatmap-color": [
+        "interpolate", ["linear"], ["heatmap-density"],
+        0, "rgba(253, 174, 97, 0)", 0.15, "rgba(253, 174, 97, 0.6)", 0.45, "#f46d43", 0.75, "#d73027", 1, "#a50026",
+      ],
+      "heatmap-opacity": fade,
     },
   });
   map.addLayer({
@@ -139,11 +282,15 @@ map.on("load", () => {
   map.on("click", "stations", (event) => {
     const feature = event.features[0];
     const step = Number(slider.value);
-    const value = data.rates[feature.id][step];
-    const rate = value < 0 ? "pas de donnée" : `${value} % de remplissage`;
+    const offset = feature.id * steps + step;
+    const bikesHere = bikes[offset];
+    const detail =
+      bikesHere === MISSING
+        ? "pas de donnée"
+        : `${bikesHere} vélo${bikesHere > 1 ? "s" : ""} · ${rates[offset] === MISSING ? "?" : rates[offset]} % de remplissage`;
     new Popup({ maxWidth: "260px" })
       .setLngLat(feature.geometry.coordinates)
-      .setHTML(`<strong>${escapeHtml(feature.properties.name)}</strong><div>${rate}</div><div>${escapeHtml(data.times[step])}</div>`)
+      .setHTML(`<strong>${escapeHtml(feature.properties.name)}</strong><div>${detail}</div><div>${escapeHtml(data.times[step])}</div>`)
       .addTo(map);
   });
   map.on("mouseenter", "stations", () => {
@@ -152,9 +299,13 @@ map.on("load", () => {
   map.on("mouseleave", "stations", () => {
     map.getCanvas().style.cursor = "";
   });
+  setMode(mode);
   show(Number(slider.value));
 });
 
+for (const input of document.querySelectorAll('input[name="mode"]')) {
+  input.addEventListener("change", () => setMode(input.value));
+}
 slider.addEventListener("input", () => show(Number(slider.value)));
 spark.addEventListener("click", (event) => {
   const box = spark.getBoundingClientRect();
@@ -162,17 +313,25 @@ spark.addEventListener("click", (event) => {
 });
 
 let timer = null;
-play.addEventListener("click", () => {
-  if (timer !== null) {
-    clearInterval(timer);
-    timer = null;
-    play.textContent = "▶ Lecture";
-    return;
-  }
+function start() {
+  const delay = (1000 * data.minutes) / 60 / Number(speed.value);
+  timer = setInterval(() => show((Number(slider.value) + 1) % steps), delay);
   play.textContent = "⏸ Pause";
-  timer = setInterval(() => show((Number(slider.value) + 1) % (last + 1)), 350);
+}
+function stop() {
+  clearInterval(timer);
+  timer = null;
+  play.textContent = "▶ Lecture";
+}
+play.addEventListener("click", () => (timer === null ? start() : stop()));
+speed.addEventListener("change", () => {
+  if (timer !== null) {
+    stop();
+    start();
+  }
 });
 
+setMode(mode);
 show(0);
 </script>
 </body>

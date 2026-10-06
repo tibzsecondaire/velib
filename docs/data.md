@@ -49,8 +49,9 @@ Two scripts write standalone pages to `data/figures/`, from velib-data or from a
 
 - `uv run --group analysis python scripts/heatmap_period.py --source kaggle` draws the city
   rhythm by day and hour, and the fill rate of every station
-- `uv run python scripts/replay_map.py --source kaggle` replays the fill rate of every station on
-  a map of Paris, hour by hour, with a slider and a play button
+- `uv run python scripts/replay_map.py --source kaggle` replays every station on a map of Paris,
+  every 15 minutes, with a slider and a play button: the fill rate of each station, or a heatmap
+  of the available bikes or of the empty stations
 
 The replay map opens straight from the file in Safari. Chromium-based browsers, such as Chrome
 and Edge, refuse to start the map from a local file: add `--serve` to open it through a local web

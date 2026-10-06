@@ -33,7 +33,7 @@ def fill_rate_by_slot(
 def fill_rate_over_time(
     frame: pl.DataFrame, *, slot: str = "1h", time_zone: str = PARIS_TIME_ZONE
 ) -> pl.DataFrame:
-    """Averages the fill rate of each station per local time slot, over the whole frame.
+    """Averages the fill rate and the available bikes of each station per local time slot.
 
     Args:
         frame: Snapshot rows with fetched_at (UTC), station_id, mechanical, ebike and docks.
@@ -41,15 +41,17 @@ def fill_rate_over_time(
         time_zone: Time zone of the slots.
 
     Returns:
-        Columns station_id, slot (local time) and fill_rate, sorted by station and slot.
+        Columns station_id, slot (local time), fill_rate and bikes (mean available bikes),
+        sorted by station and slot.
     """
     return (
         frame.with_columns(
             _local_time(time_zone).dt.truncate(slot).alias("slot"),
             _fill_rate().alias("fill_rate"),
+            _bikes().alias("bikes"),
         )
         .group_by("station_id", "slot")
-        .agg(pl.col("fill_rate").mean())
+        .agg(pl.col("fill_rate").mean(), pl.col("bikes").mean())
         .sort("station_id", "slot")
     )
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 import polars as pl
+import pytest
 
 from velib.heatmap import city_rhythm, fill_rate_by_slot, fill_rate_over_time
 
@@ -45,6 +46,20 @@ def test_fill_rate_over_time_keeps_every_day() -> None:
     rates = fill_rate_over_time(frame, slot="1h")
     assert rates.get_column("slot").dt.strftime("%d %H:%M").to_list() == ["04 23:00", "05 10:00"]
     assert rates.get_column("fill_rate").to_list() == [0.5, 0.25]
+
+
+def test_fill_rate_over_time_averages_the_available_bikes() -> None:
+    frame = pl.DataFrame(
+        [
+            (datetime(2026, 10, 5, 8, 0, tzinfo=UTC), 1, 5, 0, 5),
+            (datetime(2026, 10, 5, 8, 20, tzinfo=UTC), 1, 1, 2, 7),
+            (datetime(2026, 10, 5, 8, 40, tzinfo=UTC), 1, 0, 0, 0),
+        ],
+        schema=SCHEMA,
+        orient="row",
+    )
+    rates = fill_rate_over_time(frame, slot="1h")
+    assert rates.get_column("bikes").to_list() == pytest.approx([8 / 3])
 
 
 def test_city_rhythm_averages_open_stations_per_slot() -> None:
