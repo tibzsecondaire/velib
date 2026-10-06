@@ -21,6 +21,7 @@ dependencies = [
 [project.scripts]
 velib-collect = "velib.collect.cli:main"
 velib-archives = "velib.archives:main"
+velib-forecast = "velib.forecast.cli:main"
 
 [dependency-groups]
 dev = [
