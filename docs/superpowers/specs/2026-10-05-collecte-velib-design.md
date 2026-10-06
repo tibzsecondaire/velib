@@ -142,25 +142,28 @@ Les 2 tâches partagent le groupe de `concurrency` `velib-data`, sans annulation
 Elles ont seulement la permission `contents: write`. Leurs commits ont pour auteur `github-actions[bot]`.
 
 `collect.yml` tourne avec `cron: "2-59/5 * * * *"`, soit à 2, 7, 12 minutes après l'heure et ainsi de suite, pour éviter
-l'heure pile. On peut aussi la lancer à la main. Elle s'arrête au bout de 5 minutes.
+l'heure pile. On peut aussi la lancer à la main. Elle s'arrête au bout de 20 minutes.
 
-1. Récupérer `velib-data` avec un historique d'un seul commit.
-2. Récupérer `velib` au tag `collector-v1` dans `code/`. Le dépôt est public, donc aucune clé n'est nécessaire.
+1. Récupérer la dernière version de `main` de `velib-data`, avec un historique d'un seul commit.
+2. Récupérer `velib` au tag `collector-v2` dans `code/`. Le dépôt est public, donc aucune clé n'est nécessaire.
 3. Installer l'environnement avec uv, sans les dépendances de développement.
-4. Lancer `velib-collect snapshot --output-dir raw`, qui écrit `station_status.csv` et `snapshot_meta.json`, puis
-   affiche le message de commit.
-5. Committer. Comme `snapshot_meta.json` change à chaque relevé, chaque relevé produit un commit, même si les stations
-   n'ont pas bougé.
-6. Pousser. Si GitHub refuse, faire un `git pull --rebase` et réessayer, 3 fois au plus.
+4. Pendant environ 12 minutes, à chaque marque de 5 minutes (2, 7, 12 minutes après l'heure et ainsi de suite) :
+   lancer `velib-collect snapshot --output-dir raw`, qui écrit `station_status.csv` et `snapshot_meta.json` puis
+   affiche le message de commit ; committer ; pousser. Comme `snapshot_meta.json` change à chaque relevé, chaque
+   relevé produit un commit, même si les stations n'ont pas bougé.
+5. Si GitHub refuse un push : repartir de la dernière version de `main`, y réappliquer les fichiers `raw/` du
+   relevé, committer et réessayer, 3 fois au plus.
 
 `compact.yml` tourne avec `cron: "15 0 * * *"`, soit vers 0 h 15 UTC. On peut la lancer à la main avec un paramètre `day`,
 qui vaut la veille par défaut. Elle s'arrête au bout de 15 minutes.
 
-1. Récupérer `velib-data`, puis l'historique depuis la veille du jour traité avec `git fetch --shallow-since`.
+1. Récupérer la dernière version de `main` de `velib-data`, puis l'historique depuis la veille du jour traité avec
+   `git fetch --shallow-since`.
 2. Récupérer et installer `velib` comme pour la collecte.
 3. Lancer `velib-collect compact --day AAAA-MM-JJ`, qui relit les commits du jour, écrit le Parquet, met à jour
    `index.csv` et réécrit `station_information.csv`.
-4. Committer avec le message `compact AAAA-MM-JJ` et pousser, avec les mêmes nouvelles tentatives.
+4. Committer avec le message `compact AAAA-MM-JJ` et pousser. Si GitHub refuse, réappliquer de la même façon les
+   dossiers `daily/` et `stations/` sur la dernière version de `main`.
 
 Relancer le regroupement d'un jour déjà traité remplace son Parquet et sa ligne d'index.
 L'historique brut reste dans git, donc on peut toujours reconstruire une journée.
@@ -193,7 +196,7 @@ Dépendances :
 | Délai dépassé, erreur réseau ou erreur 5xx | 3 essais, puis échec |
 | Format inattendu, identifiants en double ou moins de 1 000 stations | échec, rien n'est committé |
 | Stations inchangées depuis le relevé précédent | commit quand même, car `snapshot_meta.json` garde l'heure du relevé |
-| Push refusé à cause d'une autre tâche | `git pull --rebase` et nouvel essai, 3 fois au plus |
+| Push refusé à cause d'une autre tâche | réapplication des fichiers sur la dernière version de `main`, 3 fois au plus |
 | Relevés retardés ou sautés par GitHub | visibles dans `index.csv`. L'analyse regroupe par tranches de 15 minutes |
 | Échec du regroupement | relance manuelle avec le paramètre `day` |
 | Station muette depuis plus de 24 heures | conservée telle quelle. L'analyse la signale |
@@ -265,3 +268,12 @@ Pour la carte, le sous-projet 2 part de ces contraintes connues :
 - `velib` ne reçoit pas les commits de collecte, donc la limite de 10 publications par heure de GitHub Pages ne le gêne pas
 
 Quand MkDocs sera configuré, il faudra exclure `docs/superpowers/` du site publié.
+
+## Ajustements après la mise en service
+
+- 5 octobre 2026 : un relevé resté en file d'attente récupérait `velib-data` tel qu'il était à sa création, et un
+  `git pull --rebase` entre 2 relevés entre toujours en conflit sur `raw/`. Les tâches récupèrent donc la dernière
+  version de `main` et réappliquent leurs fichiers quand un push est refusé.
+- 6 octobre 2026 : GitHub n'exécute la planification « toutes les 5 minutes » qu'environ tous les quarts d'heure
+  (écart médian mesuré de 14 minutes entre 0 h et 7 h UTC). Chaque passage fait donc plusieurs relevés, sur les
+  marques de 5 minutes, pendant environ 12 minutes.
