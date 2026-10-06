@@ -820,7 +820,7 @@ def immobile_per_day(immobilisations: pl.DataFrame) -> pl.DataFrame:
     """Immobile bikes of each type over the whole city, per day: day, kind, bikes, stations."""
     return (
         immobilisations.with_columns(pl.date_ranges("first_day", "last_day").alias("day"))
-        .explode("day")
+        .explode("day", empty_as_null=False)
         .group_by("day", "kind")
         .agg(pl.col("bikes").sum(), pl.len().alias("stations"))
         .sort("day", "kind")
