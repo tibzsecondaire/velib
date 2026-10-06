@@ -12,8 +12,10 @@ de heatmap fonctionnent sans changement sur elles.
 
 ## Critère de réussite
 
-`scripts/heatmap_day.py --source kaggle 2025-12-10` trace la heatmap complète du 10 décembre 2025, et
-`--source lovasoa 2021-02-10` celle du 10 février 2021.
+`scripts/heatmap_day.py --source kaggle 2025-12-10` trace la heatmap complète du 10 décembre 2025, en
+créneaux de 15 minutes. `--source lovasoa --slot 30m 2021-03-25` trace celle du 25 mars 2021 en créneaux de
+30 minutes : lovasoa ne compte qu'environ 60 relevés par jour (92 au mieux, le 25 mars 2021), avec des trous
+d'une heure en moyenne, donc aucune journée n'y est complète au pas de 15 minutes.
 
 ## Archives retenues
 
@@ -62,6 +64,7 @@ La documentation le signale.
 - `load_day` et `load_stations` lisent directement une source locale, sans la recopier dans le cache
 - `scripts/heatmap_day.py` gagne l'option `--source`, qui vaut `velib-data` par défaut, ou le nom d'une archive
   importée, ou un dossier
+- `scripts/heatmap_day.py` gagne aussi l'option `--slot` (15 minutes par défaut), pour les archives plus espacées
 
 ## Données publiées ou non
 

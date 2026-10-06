@@ -21,6 +21,13 @@ lists the available feeds:
 `raw/station_status.csv` and `raw/snapshot_meta.json`. GitHub Actions runs it every 5 minutes in
 [tibzsecondaire/velib-data](https://github.com/tibzsecondaire/velib-data), which publishes the history.
 
+## Archives
+
+`velib-archives import kaggle` (December 2025, every 5 minutes, with the weather) and
+`velib-archives import lovasoa` (November 2020 to April 2021, every 15 minutes) convert two public
+archives to the velib-data layout in `data/archives/`. See the Data page of the website for their
+licenses and limits.
+
 ## Getting started
 
 ### Prerequisites
