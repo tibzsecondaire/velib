@@ -9,39 +9,54 @@ from velib.db import query
 
 MIN_SNAPSHOTS = 200
 MIN_DEPARTURES = 10
+MAX_FLOOR = 2
+MIN_SNAPSHOTS_AT_FLOOR = 12
 MIN_DAYS = 3
 
 IMMOBILE_SQL = """
-WITH days AS (
+WITH typed AS (
     SELECT
         station_id,
         CAST(local_time AS DATE) AS day,
-        count(*) AS snapshots,
-        min(mechanical) AS mechanical_floor,
-        min(ebike) AS ebike_floor,
-        sum(greatest(-d_mechanical, 0)) AS mechanical_departures,
-        sum(greatest(-d_ebike, 0)) AS ebike_departures
+        'mechanical' AS kind,
+        mechanical AS bikes,
+        greatest(-d_mechanical, 0) AS departures
     FROM steps
-    GROUP BY station_id, day
-),
-typed AS (
-    SELECT
-        station_id, day, snapshots, 'mechanical' AS kind,
-        mechanical_floor AS floor, mechanical_departures AS departures
-    FROM days
     UNION ALL
     SELECT
-        station_id, day, snapshots, 'ebike' AS kind,
-        ebike_floor AS floor, ebike_departures AS departures
-    FROM days
+        station_id,
+        CAST(local_time AS DATE) AS day,
+        'ebike' AS kind,
+        ebike AS bikes,
+        greatest(-d_ebike, 0) AS departures
+    FROM steps
+),
+floors AS (
+    SELECT *, min(bikes) OVER (PARTITION BY station_id, kind, day) AS floor
+    FROM typed
+),
+days AS (
+    SELECT
+        station_id,
+        kind,
+        day,
+        count(*) AS snapshots,
+        min(floor) AS floor,
+        sum(departures) AS departures,
+        count(*) FILTER (WHERE bikes = floor) AS snapshots_at_floor
+    FROM floors
+    GROUP BY station_id, kind, day
 ),
 flagged AS (
     SELECT
         *,
         day - CAST(row_number() OVER (PARTITION BY station_id, kind ORDER BY day) AS INTEGER)
             AS run
-    FROM typed
-    WHERE snapshots >= $min_snapshots AND departures >= $min_departures AND floor >= 1
+    FROM days
+    WHERE snapshots >= $min_snapshots
+        AND departures >= $min_departures
+        AND floor BETWEEN 1 AND $max_floor
+        AND snapshots_at_floor >= $min_snapshots_at_floor
 )
 SELECT
     f.station_id,
@@ -77,20 +92,27 @@ def immobile_bikes(
     *,
     min_snapshots: int = MIN_SNAPSHOTS,
     min_departures: int = MIN_DEPARTURES,
+    max_floor: int = MAX_FLOOR,
+    min_snapshots_at_floor: int = MIN_SNAPSHOTS_AT_FLOOR,
     min_days: int = MIN_DAYS,
 ) -> pl.DataFrame:
     """Finds bikes that stay in a station for days while bikes of their type keep leaving it.
 
     A Paris day counts when a station has at least min_snapshots snapshots and min_departures
-    departures of the type. Its floor is the smallest number of bikes of that type during the
-    day. At least min_days consecutive days with a floor of 1 or more make an immobilisation
-    of as many bikes as the smallest floor: probably broken bikes or, for electric bikes,
+    departures of the type, and keeps falling back to the same few bikes of that type: its
+    floor, the smallest number of the day, is between 1 and max_floor and lasts at least
+    min_snapshots_at_floor snapshots. Larger floors that the station only touches are a
+    surplus, not stuck bikes. At least min_days consecutive days make an immobilisation of as
+    many bikes as the smallest floor: probably broken bikes or, for electric bikes,
     discharged ones.
 
     Args:
         connection: Connection from velib.db.connect.
         min_snapshots: Snapshots that make a full day.
         min_departures: Departures of the type that make an active day.
+        max_floor: Largest floor that can be stuck bikes.
+        min_snapshots_at_floor: Snapshots at the floor that make it a stuck floor; 12 is an
+            hour of 5-minute snapshots.
         min_days: Shortest immobilisation, in consecutive days.
 
     Returns:
@@ -100,6 +122,8 @@ def immobile_bikes(
     params = {
         "min_snapshots": min_snapshots,
         "min_departures": min_departures,
+        "max_floor": max_floor,
+        "min_snapshots_at_floor": min_snapshots_at_floor,
         "min_days": min_days,
     }
     return query(connection, IMMOBILE_SQL, params)

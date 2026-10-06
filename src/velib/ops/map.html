@@ -53,7 +53,8 @@ const data = JSON.parse(document.getElementById("ops-data").textContent);
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (char) => ESCAPES[char]);
 const count = (value) => value.toLocaleString("fr-FR");
-const plural = (value, word) => `${count(value)} ${word}${value > 1 ? "s" : ""}`;
+const plural = (value, word) => `${count(value)} ${word}${value >= 2 ? "s" : ""}`;
+const agreed = (value, noun, adjective) => `${plural(value, noun)} ${adjective}${value >= 2 ? "s" : ""}`;
 const moved = ["+", ["get", "added"], ["get", "removed"]];
 const longest = ["max", ["get", "ebike_days"], ["get", "mechanical_days"]];
 const unavailable = ["coalesce", ["get", "unavailable"], 0];
@@ -63,7 +64,7 @@ const MODES = {
   regulation: {
     title: "Vélos déplacés par l’opérateur",
     legend: ["bleu : la station reçoit plus de vélos qu’elle n’en perd", "orange : elle en perd plus qu’elle n’en reçoit", "taille : vélos déplacés au total"],
-    summary: `${plural(totals.operations, "intervention")} · ${count(totals.added)} vélos ajoutés · ${count(totals.removed)} vélos retirés`,
+    summary: `${plural(totals.operations, "intervention")} · ${agreed(totals.added, "vélo", "ajouté")} · ${agreed(totals.removed, "vélo", "retiré")}`,
     filter: [">", moved, 0],
     radius: ["min", 26, ["+", 2, ["*", 1.2, ["sqrt", moved]]]],
     color: ["interpolate", ["linear"], ["/", ["-", ["get", "added"], ["get", "removed"]], ["max", 1, moved]], -1, "#e66101", 0, "#f7f7f7", 1, "#2c7bb6"],
@@ -73,13 +74,13 @@ const MODES = {
     legend: ["violet : au moins un électrique immobilisé", "marron : des mécaniques seulement", "taille : durée la plus longue, en jours"],
     summary: `${plural(totals.ebike_runs, "immobilisation")} d’électriques · ${plural(totals.mechanical_runs, "immobilisation")} de mécaniques`,
     filter: [">", longest, 0],
-    radius: ["+", 3, ["*", 1.2, longest]],
+    radius: ["+", 2, ["*", 0.6, longest]],
     color: ["case", [">", ["get", "ebike_days"], 0], "#7b3294", "#a6611a"],
   },
   unavailable: {
     title: "Places hors service",
     legend: ["taille : places hors service en moyenne", "estimées par capacité − vélos − bornes libres"],
-    summary: totals.unavailable === null ? "" : `${count(totals.unavailable)} places hors service en moyenne`,
+    summary: totals.unavailable === null ? "" : `${plural(Math.round(totals.unavailable), "place")} hors service en moyenne`,
     filter: [">", unavailable, 0],
     radius: ["min", 26, ["+", 2, ["*", 4, ["sqrt", unavailable]]]],
     color: "#d7191c",
@@ -126,13 +127,13 @@ function describe(station) {
     lines.push(`<div>${plural(station.operations, "intervention")} : +${count(station.added)} / −${count(station.removed)} vélos</div>`);
   }
   if (station.ebike_days > 0) {
-    lines.push(`<div>${plural(station.ebike_bikes, "électrique")} immobilisé${station.ebike_bikes > 1 ? "s" : ""} pendant ${station.ebike_days} jours</div>`);
+    lines.push(`<div>${plural(station.ebike_bikes, "électrique")} immobilisé${station.ebike_bikes >= 2 ? "s" : ""} pendant ${station.ebike_days} jours</div>`);
   }
   if (station.mechanical_days > 0) {
-    lines.push(`<div>${plural(station.mechanical_bikes, "mécanique")} immobilisé${station.mechanical_bikes > 1 ? "s" : ""} pendant ${station.mechanical_days} jours</div>`);
+    lines.push(`<div>${plural(station.mechanical_bikes, "mécanique")} immobilisé${station.mechanical_bikes >= 2 ? "s" : ""} pendant ${station.mechanical_days} jours</div>`);
   }
   if (data.has_unavailable && station.unavailable > 0) {
-    lines.push(`<div>${count(station.unavailable)} places hors service en moyenne</div>`);
+    lines.push(`<div>${plural(station.unavailable, "place")} hors service en moyenne</div>`);
   }
   return lines.join("");
 }

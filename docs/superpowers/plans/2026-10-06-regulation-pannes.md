@@ -648,8 +648,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import duckdb
+import polars as pl
 
-from tests.unit.sources import Row, write_source
+from tests.unit.sources import STATIONS, Row, write_source
 from velib.db import connect
 from velib.ops.breakdowns import (
     has_real_docks,
@@ -660,6 +661,21 @@ from velib.ops.breakdowns import (
 
 DAYS = [9, 10, 11]
 HOURS = [8, 12, 18]
+FOUR_STATIONS = pl.concat(
+    [
+        STATIONS,
+        pl.DataFrame(
+            {
+                "station_id": [3, 4],
+                "station_code": ["00003", "00004"],
+                "name": ["Charlie", "Delta"],
+                "lat": [48.87, 48.88],
+                "lon": [2.37, 2.38],
+                "capacity": [30, 20],
+            }
+        ),
+    ]
+)
 
 
 def _immobile_connection(tmp_path: Path) -> duckdb.DuckDBPyConnection:
@@ -670,12 +686,18 @@ def _immobile_connection(tmp_path: Path) -> duckdb.DuckDBPyConnection:
             moment = datetime(2025, 12, day, hour, tzinfo=UTC)
             rows.append((moment, 1, station_one_mechanical[index], [1, 3, 1][index], 5))
             rows.append((moment, 2, [2, 4, 2][index], [0, 1, 0][index], 5))
-    return connect(write_source(tmp_path / "source", rows))
+            rows.append((moment, 3, [5, 7, 5][index], 0, 5))
+            rows.append((moment, 4, 0, [3, 1, 3][index], 5))
+    return connect(write_source(tmp_path / "source", rows, stations=FOUR_STATIONS))
 
 
-def test_immobile_bikes_needs_consecutive_active_days_with_a_floor(tmp_path: Path) -> None:
+def test_immobile_bikes_needs_consecutive_days_stuck_on_a_small_floor(tmp_path: Path) -> None:
     immobilisations = immobile_bikes(
-        _immobile_connection(tmp_path), min_snapshots=3, min_departures=2, min_days=3
+        _immobile_connection(tmp_path),
+        min_snapshots=3,
+        min_departures=2,
+        min_days=3,
+        min_snapshots_at_floor=2,
     )
     first, last = date(2025, 12, 9), date(2025, 12, 11)
     assert immobilisations.rows() == [
@@ -720,39 +742,54 @@ from velib.db import query
 
 MIN_SNAPSHOTS = 200
 MIN_DEPARTURES = 10
+MAX_FLOOR = 2
+MIN_SNAPSHOTS_AT_FLOOR = 12
 MIN_DAYS = 3
 
 IMMOBILE_SQL = """
-WITH days AS (
+WITH typed AS (
     SELECT
         station_id,
         CAST(local_time AS DATE) AS day,
-        count(*) AS snapshots,
-        min(mechanical) AS mechanical_floor,
-        min(ebike) AS ebike_floor,
-        sum(greatest(-d_mechanical, 0)) AS mechanical_departures,
-        sum(greatest(-d_ebike, 0)) AS ebike_departures
+        'mechanical' AS kind,
+        mechanical AS bikes,
+        greatest(-d_mechanical, 0) AS departures
     FROM steps
-    GROUP BY station_id, day
-),
-typed AS (
-    SELECT
-        station_id, day, snapshots, 'mechanical' AS kind,
-        mechanical_floor AS floor, mechanical_departures AS departures
-    FROM days
     UNION ALL
     SELECT
-        station_id, day, snapshots, 'ebike' AS kind,
-        ebike_floor AS floor, ebike_departures AS departures
-    FROM days
+        station_id,
+        CAST(local_time AS DATE) AS day,
+        'ebike' AS kind,
+        ebike AS bikes,
+        greatest(-d_ebike, 0) AS departures
+    FROM steps
+),
+floors AS (
+    SELECT *, min(bikes) OVER (PARTITION BY station_id, kind, day) AS floor
+    FROM typed
+),
+days AS (
+    SELECT
+        station_id,
+        kind,
+        day,
+        count(*) AS snapshots,
+        min(floor) AS floor,
+        sum(departures) AS departures,
+        count(*) FILTER (WHERE bikes = floor) AS snapshots_at_floor
+    FROM floors
+    GROUP BY station_id, kind, day
 ),
 flagged AS (
     SELECT
         *,
         day - CAST(row_number() OVER (PARTITION BY station_id, kind ORDER BY day) AS INTEGER)
             AS run
-    FROM typed
-    WHERE snapshots >= $min_snapshots AND departures >= $min_departures AND floor >= 1
+    FROM days
+    WHERE snapshots >= $min_snapshots
+        AND departures >= $min_departures
+        AND floor BETWEEN 1 AND $max_floor
+        AND snapshots_at_floor >= $min_snapshots_at_floor
 )
 SELECT
     f.station_id,
@@ -788,20 +825,27 @@ def immobile_bikes(
     *,
     min_snapshots: int = MIN_SNAPSHOTS,
     min_departures: int = MIN_DEPARTURES,
+    max_floor: int = MAX_FLOOR,
+    min_snapshots_at_floor: int = MIN_SNAPSHOTS_AT_FLOOR,
     min_days: int = MIN_DAYS,
 ) -> pl.DataFrame:
     """Finds bikes that stay in a station for days while bikes of their type keep leaving it.
 
     A Paris day counts when a station has at least min_snapshots snapshots and min_departures
-    departures of the type. Its floor is the smallest number of bikes of that type during the
-    day. At least min_days consecutive days with a floor of 1 or more make an immobilisation
-    of as many bikes as the smallest floor: probably broken bikes or, for electric bikes,
+    departures of the type, and keeps falling back to the same few bikes of that type: its
+    floor, the smallest number of the day, is between 1 and max_floor and lasts at least
+    min_snapshots_at_floor snapshots. Larger floors that the station only touches are a
+    surplus, not stuck bikes. At least min_days consecutive days make an immobilisation of as
+    many bikes as the smallest floor: probably broken bikes or, for electric bikes,
     discharged ones.
 
     Args:
         connection: Connection from velib.db.connect.
         min_snapshots: Snapshots that make a full day.
         min_departures: Departures of the type that make an active day.
+        max_floor: Largest floor that can be stuck bikes.
+        min_snapshots_at_floor: Snapshots at the floor that make it a stuck floor; 12 is an
+            hour of 5-minute snapshots.
         min_days: Shortest immobilisation, in consecutive days.
 
     Returns:
@@ -811,6 +855,8 @@ def immobile_bikes(
     params = {
         "min_snapshots": min_snapshots,
         "min_departures": min_departures,
+        "max_floor": max_floor,
+        "min_snapshots_at_floor": min_snapshots_at_floor,
         "min_days": min_days,
     }
     return query(connection, IMMOBILE_SQL, params)
@@ -977,9 +1023,11 @@ import polars as pl
 
 from velib.db import query
 from velib.ops.breakdowns import (
+    MAX_FLOOR,
     MIN_DAYS,
     MIN_DEPARTURES,
     MIN_SNAPSHOTS,
+    MIN_SNAPSHOTS_AT_FLOOR,
     has_real_docks,
     immobile_bikes,
     immobile_per_day,
@@ -1188,10 +1236,12 @@ def _immobile_section(immobile: pl.DataFrame) -> list[str]:
     return [
         "## Immobile bikes",
         "",
-        f"A Paris day counts when a station has at least {MIN_SNAPSHOTS} snapshots and at least "
-        f"{MIN_DEPARTURES} departures of a bike type. At least {MIN_DAYS} consecutive days "
-        "with at least one bike of that type all day long make an immobilisation: probably "
-        "broken bikes or, for electric bikes, discharged ones.",
+        f"A Paris day counts when a station has at least {MIN_SNAPSHOTS} snapshots and "
+        f"{MIN_DEPARTURES} departures of a bike type, and keeps falling back to the same 1 to "
+        f"{MAX_FLOOR} bikes of that type for at least {MIN_SNAPSHOTS_AT_FLOOR * 5} minutes in "
+        f"total. At least {MIN_DAYS} consecutive such days make an immobilisation: probably "
+        "broken bikes or, for electric bikes, discharged ones. Larger floors that a station "
+        "only touches are a surplus of bikes, not stuck bikes.",
         "",
         *_table(
             ["Type", "Immobilisations", "Stations", "Immobile bikes per day", "Longest, in days"],
@@ -1363,7 +1413,8 @@ const data = JSON.parse(document.getElementById("ops-data").textContent);
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (char) => ESCAPES[char]);
 const count = (value) => value.toLocaleString("fr-FR");
-const plural = (value, word) => `${count(value)} ${word}${value > 1 ? "s" : ""}`;
+const plural = (value, word) => `${count(value)} ${word}${value >= 2 ? "s" : ""}`;
+const agreed = (value, noun, adjective) => `${plural(value, noun)} ${adjective}${value >= 2 ? "s" : ""}`;
 const moved = ["+", ["get", "added"], ["get", "removed"]];
 const longest = ["max", ["get", "ebike_days"], ["get", "mechanical_days"]];
 const unavailable = ["coalesce", ["get", "unavailable"], 0];
@@ -1373,7 +1424,7 @@ const MODES = {
   regulation: {
     title: "Vélos déplacés par l’opérateur",
     legend: ["bleu : la station reçoit plus de vélos qu’elle n’en perd", "orange : elle en perd plus qu’elle n’en reçoit", "taille : vélos déplacés au total"],
-    summary: `${plural(totals.operations, "intervention")} · ${count(totals.added)} vélos ajoutés · ${count(totals.removed)} vélos retirés`,
+    summary: `${plural(totals.operations, "intervention")} · ${agreed(totals.added, "vélo", "ajouté")} · ${agreed(totals.removed, "vélo", "retiré")}`,
     filter: [">", moved, 0],
     radius: ["min", 26, ["+", 2, ["*", 1.2, ["sqrt", moved]]]],
     color: ["interpolate", ["linear"], ["/", ["-", ["get", "added"], ["get", "removed"]], ["max", 1, moved]], -1, "#e66101", 0, "#f7f7f7", 1, "#2c7bb6"],
@@ -1383,13 +1434,13 @@ const MODES = {
     legend: ["violet : au moins un électrique immobilisé", "marron : des mécaniques seulement", "taille : durée la plus longue, en jours"],
     summary: `${plural(totals.ebike_runs, "immobilisation")} d’électriques · ${plural(totals.mechanical_runs, "immobilisation")} de mécaniques`,
     filter: [">", longest, 0],
-    radius: ["+", 3, ["*", 1.2, longest]],
+    radius: ["+", 2, ["*", 0.6, longest]],
     color: ["case", [">", ["get", "ebike_days"], 0], "#7b3294", "#a6611a"],
   },
   unavailable: {
     title: "Places hors service",
     legend: ["taille : places hors service en moyenne", "estimées par capacité − vélos − bornes libres"],
-    summary: totals.unavailable === null ? "" : `${count(totals.unavailable)} places hors service en moyenne`,
+    summary: totals.unavailable === null ? "" : `${plural(Math.round(totals.unavailable), "place")} hors service en moyenne`,
     filter: [">", unavailable, 0],
     radius: ["min", 26, ["+", 2, ["*", 4, ["sqrt", unavailable]]]],
     color: "#d7191c",
@@ -1436,13 +1487,13 @@ function describe(station) {
     lines.push(`<div>${plural(station.operations, "intervention")} : +${count(station.added)} / −${count(station.removed)} vélos</div>`);
   }
   if (station.ebike_days > 0) {
-    lines.push(`<div>${plural(station.ebike_bikes, "électrique")} immobilisé${station.ebike_bikes > 1 ? "s" : ""} pendant ${station.ebike_days} jours</div>`);
+    lines.push(`<div>${plural(station.ebike_bikes, "électrique")} immobilisé${station.ebike_bikes >= 2 ? "s" : ""} pendant ${station.ebike_days} jours</div>`);
   }
   if (station.mechanical_days > 0) {
-    lines.push(`<div>${plural(station.mechanical_bikes, "mécanique")} immobilisé${station.mechanical_bikes > 1 ? "s" : ""} pendant ${station.mechanical_days} jours</div>`);
+    lines.push(`<div>${plural(station.mechanical_bikes, "mécanique")} immobilisé${station.mechanical_bikes >= 2 ? "s" : ""} pendant ${station.mechanical_days} jours</div>`);
   }
   if (data.has_unavailable && station.unavailable > 0) {
-    lines.push(`<div>${count(station.unavailable)} places hors service en moyenne</div>`);
+    lines.push(`<div>${plural(station.unavailable, "place")} hors service en moyenne</div>`);
   }
   return lines.join("");
 }

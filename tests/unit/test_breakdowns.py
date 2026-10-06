@@ -6,8 +6,9 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import duckdb
+import polars as pl
 
-from tests.unit.sources import Row, write_source
+from tests.unit.sources import STATIONS, Row, write_source
 from velib.db import connect
 from velib.ops.breakdowns import (
     has_real_docks,
@@ -18,6 +19,21 @@ from velib.ops.breakdowns import (
 
 DAYS = [9, 10, 11]
 HOURS = [8, 12, 18]
+FOUR_STATIONS = pl.concat(
+    [
+        STATIONS,
+        pl.DataFrame(
+            {
+                "station_id": [3, 4],
+                "station_code": ["00003", "00004"],
+                "name": ["Charlie", "Delta"],
+                "lat": [48.87, 48.88],
+                "lon": [2.37, 2.38],
+                "capacity": [30, 20],
+            }
+        ),
+    ]
+)
 
 
 def _immobile_connection(tmp_path: Path) -> duckdb.DuckDBPyConnection:
@@ -28,12 +44,18 @@ def _immobile_connection(tmp_path: Path) -> duckdb.DuckDBPyConnection:
             moment = datetime(2025, 12, day, hour, tzinfo=UTC)
             rows.append((moment, 1, station_one_mechanical[index], [1, 3, 1][index], 5))
             rows.append((moment, 2, [2, 4, 2][index], [0, 1, 0][index], 5))
-    return connect(write_source(tmp_path / "source", rows))
+            rows.append((moment, 3, [5, 7, 5][index], 0, 5))
+            rows.append((moment, 4, 0, [3, 1, 3][index], 5))
+    return connect(write_source(tmp_path / "source", rows, stations=FOUR_STATIONS))
 
 
-def test_immobile_bikes_needs_consecutive_active_days_with_a_floor(tmp_path: Path) -> None:
+def test_immobile_bikes_needs_consecutive_days_stuck_on_a_small_floor(tmp_path: Path) -> None:
     immobilisations = immobile_bikes(
-        _immobile_connection(tmp_path), min_snapshots=3, min_departures=2, min_days=3
+        _immobile_connection(tmp_path),
+        min_snapshots=3,
+        min_departures=2,
+        min_days=3,
+        min_snapshots_at_floor=2,
     )
     first, last = date(2025, 12, 9), date(2025, 12, 11)
     assert immobilisations.rows() == [

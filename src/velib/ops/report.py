@@ -14,9 +14,11 @@ import polars as pl
 
 from velib.db import query
 from velib.ops.breakdowns import (
+    MAX_FLOOR,
     MIN_DAYS,
     MIN_DEPARTURES,
     MIN_SNAPSHOTS,
+    MIN_SNAPSHOTS_AT_FLOOR,
     has_real_docks,
     immobile_bikes,
     immobile_per_day,
@@ -225,10 +227,12 @@ def _immobile_section(immobile: pl.DataFrame) -> list[str]:
     return [
         "## Immobile bikes",
         "",
-        f"A Paris day counts when a station has at least {MIN_SNAPSHOTS} snapshots and at least "
-        f"{MIN_DEPARTURES} departures of a bike type. At least {MIN_DAYS} consecutive days "
-        "with at least one bike of that type all day long make an immobilisation: probably "
-        "broken bikes or, for electric bikes, discharged ones.",
+        f"A Paris day counts when a station has at least {MIN_SNAPSHOTS} snapshots and "
+        f"{MIN_DEPARTURES} departures of a bike type, and keeps falling back to the same 1 to "
+        f"{MAX_FLOOR} bikes of that type for at least {MIN_SNAPSHOTS_AT_FLOOR * 5} minutes in "
+        f"total. At least {MIN_DAYS} consecutive such days make an immobilisation: probably "
+        "broken bikes or, for electric bikes, discharged ones. Larger floors that a station "
+        "only touches are a surplus of bikes, not stuck bikes.",
         "",
         *_table(
             ["Type", "Immobilisations", "Stations", "Immobile bikes per day", "Longest, in days"],
