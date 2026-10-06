@@ -114,3 +114,30 @@ def test_load_stations_keeps_station_codes_as_text(tmp_path: Path) -> None:
     )
     stations = dataset.load_stations(source=source, cache_dir=tmp_path / "cache")
     assert stations.get_column("station_code").to_list() == ["00001"]
+
+
+def test_local_copy_downloads_the_missing_days_once(tmp_path: Path) -> None:
+    requested: list[str] = []
+    files = {
+        "daily/index.csv": b"date\n2026-10-05\n",
+        "daily/2026-10-05.parquet": _parquet_bytes(),
+        "stations/station_information.csv": b"station_id,station_code,name,lat,lon,capacity\n",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = str(request.url).removeprefix(f"{REMOTE}/")
+        requested.append(name)
+        return httpx.Response(200, content=files[name])
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        first = dataset.local_copy(REMOTE, cache_dir=tmp_path, client=client)
+        second = dataset.local_copy(REMOTE, cache_dir=tmp_path, client=client)
+    assert first == second == tmp_path
+    day_file = tmp_path / "daily" / "2026-10-05.parquet"
+    assert day_file.read_bytes() == files["daily/2026-10-05.parquet"]
+    assert requested.count("daily/2026-10-05.parquet") == 1
+    assert requested.count("daily/index.csv") == 2
+
+
+def test_local_copy_keeps_a_local_source(tmp_path: Path) -> None:
+    assert dataset.local_copy(tmp_path, cache_dir=tmp_path / "cache") == tmp_path

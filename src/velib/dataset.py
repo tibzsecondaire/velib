@@ -87,6 +87,35 @@ def available_days(
     return sorted(days)
 
 
+def local_copy(
+    source: str | Path, *, cache_dir: Path = CACHE_DIR, client: httpx.Client | None = None
+) -> Path:
+    """Returns a local directory with the layout of velib-data, for tools that read files.
+
+    A local source is returned as is. For a remote one, the station file and every day of the
+    index that is not cached yet are downloaded into cache_dir first.
+
+    Args:
+        source: Base URL of velib-data, or a local directory with the same layout.
+        cache_dir: Local cache directory for remote sources.
+        client: HTTP client to reuse. A new one is created when None.
+
+    Returns:
+        The directory that holds daily/ and stations/.
+    """
+    if isinstance(source, Path):
+        return source
+    http = client or gbfs.make_client()
+    try:
+        for day in available_days(source=source, cache_dir=cache_dir, client=http):
+            _resolve(f"daily/{day.isoformat()}.parquet", source, cache_dir, http, refresh=False)
+        _resolve(STATIONS_FILE, source, cache_dir, http, refresh=True)
+    finally:
+        if client is None:
+            http.close()
+    return cache_dir
+
+
 def load_period(
     *,
     source: str | Path = DATA_SOURCE,
