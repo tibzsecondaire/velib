@@ -23,6 +23,7 @@ velib-collect = "velib.collect.cli:main"
 velib-archives = "velib.archives:main"
 velib-forecast = "velib.forecast.cli:main"
 velib-db = "velib.db:main"
+velib-ops = "velib.ops.cli:main"
 
 [dependency-groups]
 dev = [

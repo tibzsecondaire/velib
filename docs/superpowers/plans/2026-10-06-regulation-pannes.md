@@ -901,7 +901,10 @@ T0 = datetime(2025, 12, 9, 2, 0, tzinfo=UTC)
 
 def _source(tmp_path: Path, *, real_docks: bool = True) -> Path:
     bikes = [2, 2, 12, 20, 21, 9]
-    rows = [(T0 + timedelta(minutes=5 * step), 1, count, 0, 25 - count) for step, count in enumerate(bikes)]
+    rows = [
+        (T0 + timedelta(minutes=5 * step), 1, count, 0, 25 - count)
+        for step, count in enumerate(bikes)
+    ]
     rows.append((T0, 2, 5, 0, 15))
     return write_source(tmp_path / "source", rows, real_docks=real_docks)
 
@@ -1131,12 +1134,12 @@ def map_payload(findings: Findings) -> dict[str, Any]:
         "has_unavailable": findings.unavailable is not None,
         "totals": {
             "operations": findings.operations.height,
-            "added": int(table.get_column("added").sum()),
-            "removed": int(table.get_column("removed").sum()),
+            "added": table.select(pl.col("added").sum()).item(),
+            "removed": table.select(pl.col("removed").sum()).item(),
             "ebike_runs": _count(runs, "ebike"),
             "mechanical_runs": _count(runs, "mechanical"),
             "unavailable": (
-                round(float(findings.unavailable.get_column("unavailable").sum()), 1)
+                round(findings.unavailable.select(pl.col("unavailable").sum()).item(), 1)
                 if findings.unavailable is not None
                 else None
             ),
@@ -1171,13 +1174,13 @@ def _immobile_section(immobile: pl.DataFrame) -> list[str]:
     rows = []
     for kind, label in KINDS.items():
         runs = immobile.filter(pl.col("kind") == kind)
-        daily = per_day.filter(pl.col("kind") == kind).get_column("bikes")
+        daily = per_day.filter(pl.col("kind") == kind).select(pl.col("bikes").mean()).item()
         rows.append(
             (
                 label,
                 runs.height,
                 runs.get_column("station_id").n_unique(),
-                f"{daily.mean():.0f}" if daily.len() else "0",
+                f"{daily or 0:.0f}",
                 runs.get_column("days").max() or 0,
             )
         )
@@ -1212,14 +1215,15 @@ def _docks_section(unavailable: pl.DataFrame | None) -> list[str]:
             "This source estimates the free docks from the capacity, so out-of-service docks "
             "cannot be measured. velib-data has the real free docks.",
         ]
-    total = float(unavailable.get_column("unavailable").sum())
-    affected = float((unavailable.get_column("share_of_time") > 0).mean() or 0)
+    total, affected = unavailable.select(
+        pl.col("unavailable").sum(), (pl.col("share_of_time") > 0).mean()
+    ).row(0)
     return [
         *lines,
         "The feed counts neither broken docks nor disabled bikes: capacity minus bikes minus "
         "free docks estimates them.",
         "",
-        f"On average, {total:.0f} docks are out of service at a time. {affected:.0%} of the "
+        f"On average, {total:.0f} docks are out of service at a time. {affected or 0:.0%} of the "
         "stations have at least one at some point.",
         "",
         *_table(

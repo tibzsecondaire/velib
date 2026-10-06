@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="stylesheet" href="__MAPLIBRE__maplibre-gl.css">
+<style>
+  :root { color-scheme: light; font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #fafafa; color: #222; }
+  header { padding: 0.75rem 1rem 0.25rem; }
+  h1 { margin: 0 0 0.25rem; font-size: 1.1rem; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.5rem 1rem; }
+  .modes { display: inline-flex; margin: 0; padding: 0; border: 1px solid #888; border-radius: 4px; overflow: hidden; }
+  .modes label { padding: 0.35rem 0.7rem; background: #fff; cursor: pointer; }
+  .modes label + label { border-left: 1px solid #888; }
+  .modes input { position: absolute; opacity: 0; pointer-events: none; }
+  .modes label:has(input:checked) { background: #3b6ea5; color: #fff; }
+  .modes label:has(input:focus-visible) { outline: 2px solid #1d3f66; outline-offset: -3px; }
+  #summary { color: #555; font-variant-numeric: tabular-nums; }
+  .wrapper { position: relative; }
+  #map { height: calc(100vh - 8.5rem); min-height: 420px; }
+  .legend { position: absolute; left: 0.75rem; bottom: 1.75rem; max-width: 17rem; padding: 0.5rem 0.75rem; border-radius: 4px; background: rgb(255 255 255 / 96%); box-shadow: 0 1px 4px rgb(0 0 0 / 20%); font-size: 0.75rem; line-height: 1.4; }
+  .notice { position: absolute; top: 1rem; left: 1rem; right: 4rem; z-index: 3; padding: 0.75rem 1rem; border: 1px solid #e0c36b; border-radius: 4px; background: #fff3cd; line-height: 1.4; }
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <div>Interventions de l’opérateur détectées dans les relevés, vélos qui ne partent jamais et places hors service. Cliquez sur une station pour voir son détail.</div>
+</header>
+<div class="controls">
+  <fieldset class="modes" aria-label="Affichage">
+    <label><input type="radio" name="mode" value="regulation" checked>Régulation</label>
+    <label><input type="radio" name="mode" value="immobile">Vélos immobilisés</label>
+    <label id="unavailable-mode"><input type="radio" name="mode" value="unavailable">Places hors service</label>
+  </fieldset>
+  <span id="summary"></span>
+</div>
+<div class="wrapper">
+  <div id="map"></div>
+  <div class="legend">
+    <strong id="legend-title"></strong>
+    <div id="legend-body"></div>
+  </div>
+  <div id="notice" class="notice" hidden>Ce navigateur refuse de lancer la carte depuis un fichier local. Ouvrez la page dans Safari, ou servez le dossier avec <code>python3 -m http.server</code>.</div>
+</div>
+<script type="application/json" id="ops-data">__DATA__</script>
+<script type="module">
+import { Map as MapLibreMap, NavigationControl, Popup } from "__MAPLIBRE__maplibre-gl.mjs";
+
+const data = JSON.parse(document.getElementById("ops-data").textContent);
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (char) => ESCAPES[char]);
+const count = (value) => value.toLocaleString("fr-FR");
+const plural = (value, word) => `${count(value)} ${word}${value > 1 ? "s" : ""}`;
+const moved = ["+", ["get", "added"], ["get", "removed"]];
+const longest = ["max", ["get", "ebike_days"], ["get", "mechanical_days"]];
+const unavailable = ["coalesce", ["get", "unavailable"], 0];
+const totals = data.totals;
+
+const MODES = {
+  regulation: {
+    title: "Vélos déplacés par l’opérateur",
+    legend: ["bleu : la station reçoit plus de vélos qu’elle n’en perd", "orange : elle en perd plus qu’elle n’en reçoit", "taille : vélos déplacés au total"],
+    summary: `${plural(totals.operations, "intervention")} · ${count(totals.added)} vélos ajoutés · ${count(totals.removed)} vélos retirés`,
+    filter: [">", moved, 0],
+    radius: ["min", 26, ["+", 2, ["*", 1.2, ["sqrt", moved]]]],
+    color: ["interpolate", ["linear"], ["/", ["-", ["get", "added"], ["get", "removed"]], ["max", 1, moved]], -1, "#e66101", 0, "#f7f7f7", 1, "#2c7bb6"],
+  },
+  immobile: {
+    title: "Vélos immobilisés",
+    legend: ["violet : au moins un électrique immobilisé", "marron : des mécaniques seulement", "taille : durée la plus longue, en jours"],
+    summary: `${plural(totals.ebike_runs, "immobilisation")} d’électriques · ${plural(totals.mechanical_runs, "immobilisation")} de mécaniques`,
+    filter: [">", longest, 0],
+    radius: ["+", 3, ["*", 1.2, longest]],
+    color: ["case", [">", ["get", "ebike_days"], 0], "#7b3294", "#a6611a"],
+  },
+  unavailable: {
+    title: "Places hors service",
+    legend: ["taille : places hors service en moyenne", "estimées par capacité − vélos − bornes libres"],
+    summary: totals.unavailable === null ? "" : `${count(totals.unavailable)} places hors service en moyenne`,
+    filter: [">", unavailable, 0],
+    radius: ["min", 26, ["+", 2, ["*", 4, ["sqrt", unavailable]]]],
+    color: "#d7191c",
+  },
+};
+
+if (!data.has_unavailable) {
+  document.getElementById("unavailable-mode").hidden = true;
+}
+
+const map = new MapLibreMap({
+  container: "map",
+  style: "__STYLE__",
+  center: [2.3488, 48.8534],
+  zoom: 11.3,
+  attributionControl: { compact: true },
+});
+map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+map.on("error", (event) => {
+  console.error(event.error);
+  if (location.protocol === "file:" && String(event.error?.message).includes("Worker")) {
+    document.getElementById("notice").hidden = false;
+  }
+});
+
+function setMode(mode) {
+  const config = MODES[mode];
+  document.getElementById("legend-title").textContent = config.title;
+  document.getElementById("legend-body").replaceChildren(
+    ...config.legend.map((text) => Object.assign(document.createElement("div"), { textContent: text })),
+  );
+  document.getElementById("summary").textContent = config.summary;
+  if (!map.getLayer("stations")) {
+    return;
+  }
+  map.setFilter("stations", config.filter);
+  map.setPaintProperty("stations", "circle-radius", config.radius);
+  map.setPaintProperty("stations", "circle-color", config.color);
+}
+
+function describe(station) {
+  const lines = [`<strong>${escapeHtml(station.name)}</strong>`];
+  if (station.operations > 0) {
+    lines.push(`<div>${plural(station.operations, "intervention")} : +${count(station.added)} / −${count(station.removed)} vélos</div>`);
+  }
+  if (station.ebike_days > 0) {
+    lines.push(`<div>${plural(station.ebike_bikes, "électrique")} immobilisé${station.ebike_bikes > 1 ? "s" : ""} pendant ${station.ebike_days} jours</div>`);
+  }
+  if (station.mechanical_days > 0) {
+    lines.push(`<div>${plural(station.mechanical_bikes, "mécanique")} immobilisé${station.mechanical_bikes > 1 ? "s" : ""} pendant ${station.mechanical_days} jours</div>`);
+  }
+  if (data.has_unavailable && station.unavailable > 0) {
+    lines.push(`<div>${count(station.unavailable)} places hors service en moyenne</div>`);
+  }
+  return lines.join("");
+}
+
+map.on("load", () => {
+  map.addSource("stations", {
+    type: "geojson",
+    data: {
+      type: "FeatureCollection",
+      features: data.stations.map((station, index) => ({
+        type: "Feature",
+        id: index,
+        geometry: { type: "Point", coordinates: [station.lon, station.lat] },
+        properties: station,
+      })),
+    },
+  });
+  map.addLayer({
+    id: "stations",
+    type: "circle",
+    source: "stations",
+    paint: { "circle-stroke-color": "#555555", "circle-stroke-width": 0.6, "circle-opacity": 0.85 },
+  });
+  map.on("click", "stations", (event) => {
+    const station = data.stations[event.features[0].id];
+    new Popup({ maxWidth: "280px" }).setLngLat([station.lon, station.lat]).setHTML(describe(station)).addTo(map);
+  });
+  map.on("mouseenter", "stations", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+  map.on("mouseleave", "stations", () => {
+    map.getCanvas().style.cursor = "";
+  });
+  setMode(document.querySelector('input[name="mode"]:checked').value);
+});
+
+for (const input of document.querySelectorAll('input[name="mode"]')) {
+  input.addEventListener("change", () => setMode(input.value));
+}
+setMode(document.querySelector('input[name="mode"]:checked').value);
+</script>
+</body>
+</html>
