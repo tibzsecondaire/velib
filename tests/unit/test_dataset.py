@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import io
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import httpx
@@ -73,6 +73,37 @@ def test_available_days_reads_the_daily_index(tmp_path: Path) -> None:
     )
     days = dataset.available_days(source=tmp_path, cache_dir=tmp_path / "cache")
     assert days == [date(2025, 12, 2), date(2025, 12, 3)]
+
+
+def test_load_period_keeps_only_the_local_days_asked(tmp_path: Path) -> None:
+    daily = tmp_path / "daily"
+    daily.mkdir()
+    files = {
+        "2025-12-01": [datetime(2025, 12, 1, 23, 30, tzinfo=UTC)],
+        "2025-12-02": [
+            datetime(2025, 12, 2, 12, 0, tzinfo=UTC),
+            datetime(2025, 12, 2, 23, 30, tzinfo=UTC),
+        ],
+        "2025-12-03": [datetime(2025, 12, 3, 12, 0, tzinfo=UTC)],
+    }
+    for day, moments in files.items():
+        frame = pl.DataFrame({"fetched_at": moments, "station_id": [1] * len(moments)})
+        frame.write_parquet(daily / f"{day}.parquet")
+    (daily / "index.csv").write_text("date\n" + "\n".join(files) + "\n", encoding="utf-8")
+    period = dataset.load_period(
+        source=tmp_path, start=date(2025, 12, 2), end=date(2025, 12, 2), cache_dir=tmp_path / "c"
+    )
+    assert period.get_column("fetched_at").to_list() == [
+        datetime(2025, 12, 1, 23, 30, tzinfo=UTC),
+        datetime(2025, 12, 2, 12, 0, tzinfo=UTC),
+    ]
+
+
+def test_load_period_without_data_raises(tmp_path: Path) -> None:
+    (tmp_path / "daily").mkdir()
+    (tmp_path / "daily" / "index.csv").write_text("date\n2025-12-01\n", encoding="utf-8")
+    with pytest.raises(FileNotFoundError):
+        dataset.load_period(source=tmp_path, start=date(2026, 1, 1), cache_dir=tmp_path / "c")
 
 
 def test_load_stations_keeps_station_codes_as_text(tmp_path: Path) -> None:

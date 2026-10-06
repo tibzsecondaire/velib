@@ -10,7 +10,7 @@ from __future__ import annotations
 import argparse
 import html
 import logging
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 import plotly.graph_objects as go
@@ -19,31 +19,13 @@ from plotly.subplots import make_subplots
 
 from velib import DATA_DIR
 from velib.archives import resolve_source
-from velib.dataset import available_days, load_day, load_stations
+from velib.dataset import load_period, load_stations
 from velib.heatmap import PARIS_TIME_ZONE, city_rhythm, fill_rate_over_time
 
 logger = logging.getLogger("heatmap_period")
 
 WEEKDAYS = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
 HOURS = [f"{hour:02d}:00" for hour in range(24)]
-
-
-def load_period(source: str | Path, start: date | None, end: date | None) -> pl.DataFrame:
-    """Loads the snapshots of the Paris days from start to end, both included."""
-    wanted = [
-        day
-        for day in available_days(source=source)
-        if (start is None or day >= start - timedelta(days=1)) and (end is None or day <= end)
-    ]
-    if not wanted:
-        raise SystemExit("no compacted day in this period")
-    frame = pl.concat([load_day(day, source=source) for day in wanted])
-    local_day = pl.col("fetched_at").dt.convert_time_zone(PARIS_TIME_ZONE).dt.date()
-    if start is not None:
-        frame = frame.filter(local_day >= start)
-    if end is not None:
-        frame = frame.filter(local_day <= end)
-    return frame
 
 
 def rhythm_figure(frame: pl.DataFrame) -> go.Figure:
@@ -163,11 +145,12 @@ def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     source = resolve_source(args.source)
-    frame = load_period(source, args.start, args.end)
-    local_days = frame.select(
-        pl.col("fetched_at").dt.convert_time_zone(PARIS_TIME_ZONE).dt.date().alias("day")
-    ).get_column("day")
-    first, last = local_days.min(), local_days.max()
+    try:
+        frame = load_period(source=source, start=args.start, end=args.end)
+    except FileNotFoundError as error:
+        raise SystemExit(str(error)) from error
+    local_day = pl.col("fetched_at").dt.convert_time_zone(PARIS_TIME_ZONE).dt.date()
+    first, last = frame.select(local_day.min(), local_day.max().alias("last")).row(0)
     label = Path(args.source).name
     output = DATA_DIR / "figures" / f"period_{label}_{first}_{last}.html"
     write_page(

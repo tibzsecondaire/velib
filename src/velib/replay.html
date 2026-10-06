@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="stylesheet" href="__MAPLIBRE__maplibre-gl.css">
+<style>
+  :root { color-scheme: light; font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #fafafa; color: #222; }
+  header { padding: 0.75rem 1rem 0.25rem; }
+  h1 { margin: 0 0 0.25rem; font-size: 1.1rem; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; padding: 0.5rem 1rem; }
+  #play { padding: 0.35rem 0.8rem; border: 1px solid #888; border-radius: 4px; background: #fff; font: inherit; cursor: pointer; }
+  #time { flex: 1 1 18rem; }
+  #time-label { min-width: 9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  #city { color: #555; }
+  #spark { display: block; width: calc(100% - 2rem); height: 56px; margin: 0 1rem 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+  .wrapper { position: relative; }
+  #map { height: calc(100vh - 12rem); min-height: 420px; }
+  .legend { position: absolute; left: 0.75rem; bottom: 1.75rem; padding: 0.5rem 0.75rem; border-radius: 4px; background: rgb(255 255 255 / 96%); box-shadow: 0 1px 4px rgb(0 0 0 / 20%); font-size: 0.75rem; line-height: 1.4; }
+  .legend .bar { width: 9rem; height: 0.5rem; margin: 0.25rem 0; border-radius: 3px; background: linear-gradient(to right, #d7191c 0%, #fee08b 50%, #1a9641 100%); }
+  .legend .labels { display: flex; justify-content: space-between; }
+  .notice { position: absolute; top: 1rem; left: 1rem; right: 4rem; z-index: 3; padding: 0.75rem 1rem; border: 1px solid #e0c36b; border-radius: 4px; background: #fff3cd; line-height: 1.4; }
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <div>Chaque point est une station, colorée selon son taux de remplissage moyen sur le créneau. Faites glisser le curseur ou lancez la lecture. Cliquez sur la courbe pour aller à un moment précis, et sur une station pour voir son détail.</div>
+</header>
+<div class="controls">
+  <button id="play" type="button">▶ Lecture</button>
+  <input id="time" type="range" min="0" value="0" step="1" aria-label="Créneau affiché">
+  <span id="time-label"></span>
+  <span id="city"></span>
+</div>
+<svg id="spark" viewBox="0 0 1000 56" preserveAspectRatio="none" aria-label="Remplissage moyen de la ville sur la période">
+  <polyline id="spark-line" fill="none" stroke="#3b6ea5" stroke-width="2" vector-effect="non-scaling-stroke"></polyline>
+  <line id="spark-cursor" x1="0" x2="0" y1="0" y2="56" stroke="#d7191c" stroke-width="2" vector-effect="non-scaling-stroke"></line>
+</svg>
+<div class="wrapper">
+  <div id="map"></div>
+  <div class="legend">
+    <strong>Remplissage</strong>
+    <div class="bar"></div>
+    <div class="labels"><span>vide</span><span>moitié</span><span>plein</span></div>
+    <div>gris : pas de donnée</div>
+  </div>
+  <div id="notice" class="notice" hidden>Ce navigateur refuse de lancer la carte depuis un fichier local. Ouvrez la page dans Safari, ou relancez <code>scripts/replay_map.py</code> avec l’option <code>--serve</code> pour l’ouvrir depuis un petit serveur local.</div>
+</div>
+<script type="application/json" id="replay-data">__DATA__</script>
+<script type="module">
+import { Map as MapLibreMap, NavigationControl, Popup } from "__MAPLIBRE__maplibre-gl.mjs";
+
+const data = JSON.parse(document.getElementById("replay-data").textContent);
+const slider = document.getElementById("time");
+const label = document.getElementById("time-label");
+const city = document.getElementById("city");
+const play = document.getElementById("play");
+const spark = document.getElementById("spark");
+const cursor = document.getElementById("spark-cursor");
+const last = data.times.length - 1;
+slider.max = String(last);
+
+const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+const escapeHtml = (text) => String(text).replace(/[&<>"']/g, (char) => ESCAPES[char]);
+const xOf = (step) => (last === 0 ? 0 : (step / last) * 1000);
+
+const known = data.city.filter((value) => value !== null);
+const low = Math.min(...known);
+const high = Math.max(...known);
+const points = data.city
+  .map((value, step) => (value === null ? null : `${xOf(step)},${52 - ((value - low) / (high - low || 1)) * 48}`))
+  .filter((point) => point !== null);
+document.getElementById("spark-line").setAttribute("points", points.join(" "));
+
+const map = new MapLibreMap({
+  container: "map",
+  style: "__STYLE__",
+  center: [2.3488, 48.8534],
+  zoom: 11.3,
+  attributionControl: { compact: true },
+});
+map.addControl(new NavigationControl({ showCompass: false }), "top-right");
+map.on("error", (event) => {
+  console.error(event.error);
+  if (location.protocol === "file:" && String(event.error?.message).includes("Worker")) {
+    document.getElementById("notice").hidden = false;
+  }
+});
+
+function show(step) {
+  slider.value = String(step);
+  label.textContent = data.times[step];
+  const mean = data.city[step];
+  city.textContent = mean === null ? "" : `Remplissage moyen de la ville : ${Math.round(mean * 100)} %`;
+  cursor.setAttribute("x1", xOf(step));
+  cursor.setAttribute("x2", xOf(step));
+  if (!map.getSource("stations")) {
+    return;
+  }
+  data.rates.forEach((values, index) => {
+    const value = values[step];
+    map.setFeatureState({ source: "stations", id: index }, { rate: value < 0 ? -1 : value / 100 });
+  });
+}
+
+map.on("load", () => {
+  map.addSource("stations", {
+    type: "geojson",
+    data: {
+      type: "FeatureCollection",
+      features: data.stations.map(([, name, lat, lon], index) => ({
+        type: "Feature",
+        id: index,
+        geometry: { type: "Point", coordinates: [lon, lat] },
+        properties: { name },
+      })),
+    },
+  });
+  map.addLayer({
+    id: "stations",
+    type: "circle",
+    source: "stations",
+    paint: {
+      "circle-color": [
+        "case",
+        ["<", ["coalesce", ["feature-state", "rate"], -1], 0],
+        "#9e9e9e",
+        ["interpolate", ["linear"], ["feature-state", "rate"], 0, "#d7191c", 0.5, "#fee08b", 1, "#1a9641"],
+      ],
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 13, 5, 16, 10],
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, 0.3, 16, 1.5],
+      "circle-opacity": 0.9,
+    },
+  });
+  map.on("click", "stations", (event) => {
+    const feature = event.features[0];
+    const step = Number(slider.value);
+    const value = data.rates[feature.id][step];
+    const rate = value < 0 ? "pas de donnée" : `${value} % de remplissage`;
+    new Popup({ maxWidth: "260px" })
+      .setLngLat(feature.geometry.coordinates)
+      .setHTML(`<strong>${escapeHtml(feature.properties.name)}</strong><div>${rate}</div><div>${escapeHtml(data.times[step])}</div>`)
+      .addTo(map);
+  });
+  map.on("mouseenter", "stations", () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+  map.on("mouseleave", "stations", () => {
+    map.getCanvas().style.cursor = "";
+  });
+  show(Number(slider.value));
+});
+
+slider.addEventListener("input", () => show(Number(slider.value)));
+spark.addEventListener("click", (event) => {
+  const box = spark.getBoundingClientRect();
+  show(Math.round(((event.clientX - box.left) / box.width) * last));
+});
+
+let timer = null;
+play.addEventListener("click", () => {
+  if (timer !== null) {
+    clearInterval(timer);
+    timer = null;
+    play.textContent = "▶ Lecture";
+    return;
+  }
+  play.textContent = "⏸ Pause";
+  timer = setInterval(() => show((Number(slider.value) + 1) % (last + 1)), 350);
+});
+
+show(0);
+</script>
+</body>
+</html>
