@@ -27,6 +27,10 @@ interventions détectées doivent tomber nettement plus la nuit que l'activité 
   de 5 jours ou plus gardent exactement 1 électrique.
 - Mécaniques : 49 % des journées actives, avec des planchers plus variés (1 à 6 vélos), en partie un simple
   surplus de vélos.
+- Temps passé au plancher : avec un plancher de 1 ou 2 vélos, la station y reste 145 minutes par jour en
+  médiane pour les électriques et 80 pour les mécaniques. Avec un plancher de 6 vélos ou plus, 55 et
+  25 minutes, et le plancher vaut 67 % du niveau médian de la journée : c'est un surplus, pas des vélos
+  bloqués.
 - Le flux en direct ne publie ni vélos ni bornes hors service. Capacité − vélos − bornes libres est positif
   dans 56 % des stations du dernier relevé : 1 510 places sur 49 913 (3,0 %). 17 stations donnent une
   valeur négative, ramenée à 0.
@@ -64,9 +68,13 @@ interventions détectées doivent tomber nettement plus la nuit que l'activité 
 
 - Vélos immobilisés, par station, jour de Paris et type de vélo :
   - le plancher est le minimum du type sur la journée ;
-  - une journée compte si elle a au moins 200 relevés et au moins 10 départs du type ;
-  - au moins 3 journées consécutives avec un plancher d'au moins 1 forment une immobilisation, dont le nombre
-    de vélos est le plus petit plancher de la série.
+  - une journée compte si elle a au moins 200 relevés et au moins 10 départs du type, et si son plancher
+    vaut 1 ou 2 vélos et dure au moins 12 relevés, une heure de relevés de 5 minutes ;
+  - au moins 3 journées consécutives forment une immobilisation, dont le nombre de vélos est le plus petit
+    plancher de la série.
+  - Première version sans plafond ni durée : les plus longues « immobilisations » comptaient 16 à 31
+    mécaniques dans de grandes stations qui ne se vident jamais. Le plafond de 2 vélos et l'heure au
+    plancher écartent ce surplus.
 - Places hors service, sur velib-data seulement : capacité − vélos − bornes libres, ramené à 0. Moyenne par
   station et part du temps avec au moins une place hors service. Une source sans `feed_updated_at`
   (les archives) n'a pas de vraies bornes libres et saute cette partie.
@@ -100,3 +108,25 @@ interventions détectées doivent tomber nettement plus la nuit que l'activité 
 - La confirmation des interventions par l'opérateur.
 - La météo, les grèves et les vacances (piste « causes extérieures »).
 - La publication de la carte Kaggle : l'archive n'est pas republiée (licence CC BY-SA).
+
+## Résultats du 6 octobre 2026
+
+Kaggle, du 2 au 16 décembre 2025 :
+
+- 1 768 interventions en 15 jours, environ 120 par jour : 12 923 vélos ajoutés et 5 022 retirés. Aux seuils
+  10 et 12 : 827 et 376 interventions.
+- 70 % des interventions ont lieu entre 21 h et 5 h, contre 19 % de l'activité : le critère de réussite est
+  atteint.
+- Juste avant une intervention, les stations qui reçoivent des vélos sont remplies à 23 %, celles qui en
+  perdent à 72 %.
+- L'opérateur vide le centre et l'ouest proche, et remplit la périphérie, le nord et l'est. Il ajoute
+  2,6 fois plus de vélos par gros lots qu'il n'en retire : les retraits se font sans doute par petits lots,
+  que le seuil ne voit pas.
+- Vélos immobilisés : 770 immobilisations d'électriques dans 641 stations, environ 210 électriques bloqués
+  par jour ; 128 de mécaniques dans 113 stations, environ 40 par jour. Certains électriques restent les
+  15 jours.
+
+velib-data, nuit du 5 au 6 octobre 2026, 2 h 30 compactées :
+
+- environ 1 640 places hors service en moyenne sur 49 913 (3,3 %), dans 57 % des stations ; quelques
+  stations entièrement hors service, comme Marignan - Champs-Élysées (40 places sur 40).

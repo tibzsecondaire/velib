@@ -58,6 +58,14 @@ The replay map opens straight from the file in Safari. Chromium-based browsers, 
 and Edge, refuse to start the map from a local file: add `--serve` to open it through a local web
 server instead.
 
+Two commands query the same data with DuckDB, from the `db` dependency group:
+
+- `uv run --group db velib-db sql --source kaggle "SELECT …"` runs one SQL query on the views
+  `snapshots`, `stations` and `steps`, the last one with the change in bikes between snapshots
+- `uv run --group db velib-ops report --source kaggle` writes to `data/ops/` a report and a map of
+  the rebalancing trucks, the stuck bikes and the out-of-service docks, described in
+  [Operations](operations.md)
+
 ## Caveats
 
 - GitHub can delay or skip scheduled jobs, so snapshots are not exactly 5 minutes apart. The

@@ -15,6 +15,7 @@ nav:
   - Home: index.md
   - Live map: map.md
   - Forecasting: forecasting.md
+  - Operations: operations.md
   - Data: data.md
 
 exclude_docs: |
