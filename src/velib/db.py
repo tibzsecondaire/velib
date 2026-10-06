@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import duckdb
@@ -73,7 +73,7 @@ def connect(source: str | Path, *, cache_dir: Path = CACHE_DIR) -> duckdb.DuckDB
 
 
 def query(
-    connection: duckdb.DuckDBPyConnection, sql: str, params: dict[str, object] | None = None
+    connection: duckdb.DuckDBPyConnection, sql: str, params: Mapping[str, object] | None = None
 ) -> pl.DataFrame:
     """Runs a query and returns its result as a polars DataFrame."""
     return pl.DataFrame(connection.sql(sql, params=params))

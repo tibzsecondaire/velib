@@ -247,7 +247,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import duckdb
@@ -316,7 +316,7 @@ def connect(source: str | Path, *, cache_dir: Path = CACHE_DIR) -> duckdb.DuckDB
 
 
 def query(
-    connection: duckdb.DuckDBPyConnection, sql: str, params: dict[str, object] | None = None
+    connection: duckdb.DuckDBPyConnection, sql: str, params: Mapping[str, object] | None = None
 ) -> pl.DataFrame:
     """Runs a query and returns its result as a polars DataFrame."""
     return pl.DataFrame(connection.sql(sql, params=params))
@@ -587,9 +587,7 @@ def hourly_shares(operations: pl.DataFrame, activity: pl.DataFrame) -> pl.DataFr
     )
 
 
-def top_stations(
-    operations: pl.DataFrame, *, limit: int = 10
-) -> tuple[pl.DataFrame, pl.DataFrame]:
+def top_stations(operations: pl.DataFrame, *, limit: int = 10) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Stations that receive the most bikes, and stations that lose the most."""
     totals = operations.group_by("station_id", "name").agg(
         pl.len().alias("operations"), *_added_and_removed()
