@@ -17,11 +17,13 @@ modèle et des références sur les 4 jours de test. Le modèle doit battre la m
 
 ## Données, vérifiées le 6 octobre 2026
 
-- 6 353 181 relevés : les 1 503 stations ont toutes leurs 4 227 créneaux de 5 minutes, sans trou
+- 6 315 606 relevés : les 1 503 stations sur 4 202 créneaux de 5 minutes. L'import écarte 25 relevés de
+  l'archive, où toutes les stations affichent 0 vélo mécanique et 0 électrique alors que leur total est juste
 - du mardi 2 au mardi 16 décembre 2025, heure de Paris, dont 2 week-ends
-- 97,6 % des relevés en service ; station vide 2,9 % du temps, pleine 1,0 %
+- 97,6 % des relevés en service ; station vide 2,4 % du temps, pleine 1,0 %
 - météo par créneau : 1,3 à 16,5 °C, pluie sur 445 créneaux sur 4 227, vent jusqu'à 6,2 m/s
-- erreur moyenne de la persistance : 0,93 vélo à 15 minutes, 1,89 à 1 heure, 3,69 à 3 heures
+- erreur moyenne de la persistance sur toute la période, sur la grille de 5 minutes : 0,76 vélo à 15 minutes,
+  1,79 à 1 heure, 3,51 à 3 heures
 
 ## Problème posé
 
@@ -103,24 +105,27 @@ Une page « Forecasting » du site résume la méthode et les résultats agrég�
 
 ## Résultats du 6 octobre 2026
 
+Chiffres recalculés après la correction de l'import Kaggle : les erreurs baissent d'environ 0,1 vélo à
+15 minutes et les conclusions ne changent pas.
+
 MAE sur les 4 jours de test, en vélos :
 
 | Horizon | persistance | profil | persistance corrigée | modèle | modèle (erreur quadratique) |
 |---|---|---|---|---|---|
-| 15 min | 0,83 | 5,04 | 0,98 | 0,83 | 0,94 |
-| 30 min | 1,23 | 5,04 | 1,40 | 1,21 | 1,30 |
-| 60 min | 1,75 | 5,04 | 1,85 | 1,67 | 1,76 |
-| 120 min | 2,63 | 5,03 | 2,56 | 2,29 | 2,36 |
-| 180 min | 3,36 | 5,02 | 3,05 | 2,70 | 2,78 |
+| 15 min | 0,74 | 5,02 | 0,89 | 0,74 | 0,83 |
+| 30 min | 1,14 | 5,02 | 1,31 | 1,13 | 1,23 |
+| 60 min | 1,71 | 5,01 | 1,80 | 1,61 | 1,73 |
+| 120 min | 2,58 | 5,00 | 2,50 | 2,23 | 2,31 |
+| 180 min | 3,28 | 5,00 | 2,98 | 2,62 | 2,71 |
 
 - Entraîné sur l'erreur quadratique, le modèle perdait contre la persistance sur la MAE jusqu'à 30 minutes : il
-  prévoit la variation moyenne, alors que 52 % des stations ne bougent pas en 15 minutes. Entraîné sur l'erreur
-  absolue, il égale la persistance à 15 minutes et la bat ensuite, de 2 % à 30 minutes à 20 % à 3 heures.
+  prévoit la variation moyenne, alors que 54 % des stations ne bougent pas en 15 minutes. Entraîné sur l'erreur
+  absolue, il égale la persistance à 15 minutes et la bat ensuite, de 1 % à 30 minutes à 20 % à 3 heures.
 - Le critère de réussite est donc atteint à partir de 30 minutes. À 15 minutes, la persistance est quasiment
   optimale pour la MAE avec ces données.
-- La version à erreur quadratique reste la meilleure sur la RMSE à 15 et 30 minutes (1,94 et 2,30 vélos).
-- En semaine, le gain à 3 heures dépasse 30 % (2,55 contre 3,75 vélos le lundi 15 décembre). Le week-end, le modèle
+- La version à erreur quadratique reste la meilleure sur la RMSE à 15 et 30 minutes (1,31 et 1,85 vélos).
+- En semaine, le gain à 3 heures dépasse 30 % (2,37 contre 3,55 vélos le lundi 15 décembre). Le week-end, le modèle
   égale à peine la persistance : l'apprentissage ne contenait qu'un week-end.
-- Au-delà d'une heure, la détection des stations vides est moins bonne que celle de la persistance (F1 de 0,18
-  contre 0,27 à 3 heures). Il faudra un modèle de classification dédié.
+- Au-delà d'une heure, la détection des stations vides est moins bonne que celle de la persistance (F1 de 0,19
+  contre 0,30 à 3 heures). Il faudra un modèle de classification dédié.
 - Le profil de la station pèse le plus ; la météo n'apporte presque rien sur ces deux semaines douces.

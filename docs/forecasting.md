@@ -9,6 +9,8 @@ horizons, clearly beyond one hour.
 ## Method
 
 - target: bikes available at a station 15, 30, 60, 120 or 180 minutes later
+- data: the 4,202 snapshots of the archive, without the 25 where every station lost the split
+  between mechanical and electric bikes
 - training period: 2 to 12 December 2025
 - test period: 13 to 16 December 2025, a weekend and 2 weekdays that the model never saw
 - model: gradient-boosted trees from scikit-learn, one per horizon, which forecast the change in
@@ -23,18 +25,18 @@ Mean absolute error over the 4 test days, in bikes. Lower is better.
 
 | Horizon | Persistence | Usual level | Corrected persistence | Model | Gain over persistence |
 |---|---|---|---|---|---|
-| 15 minutes | 0.83 | 5.04 | 0.98 | 0.83 | 0% |
-| 30 minutes | 1.23 | 5.04 | 1.40 | 1.21 | 2% |
-| 1 hour | 1.75 | 5.04 | 1.85 | 1.67 | 5% |
-| 2 hours | 2.63 | 5.03 | 2.56 | 2.29 | 13% |
-| 3 hours | 3.36 | 5.02 | 3.05 | 2.70 | 20% |
+| 15 minutes | 0.74 | 5.02 | 0.89 | 0.74 | 0% |
+| 30 minutes | 1.14 | 5.02 | 1.31 | 1.13 | 1% |
+| 1 hour | 1.71 | 5.01 | 1.80 | 1.61 | 6% |
+| 2 hours | 2.58 | 5.00 | 2.50 | 2.23 | 13% |
+| 3 hours | 3.28 | 5.00 | 2.98 | 2.62 | 20% |
 
 What this shows:
 
 - Up to 30 minutes, "no change" is almost impossible to beat. Half of the stations do not change
   in 15 minutes, and nothing in the data tells which way the others will move.
 - Beyond one hour, the model is the best method. On weekdays its error at 3 hours is about a third
-  lower than persistence: 2.55 against 3.75 bikes on Monday 15 December.
+  lower than persistence: 2.37 against 3.55 bikes on Monday 15 December.
 - At weekends the model barely beats persistence. The training period contained only one weekend.
 - The usual pattern of the station matters most. Over two weeks of mild weather, the weather adds
   almost nothing.
