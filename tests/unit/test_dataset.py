@@ -26,14 +26,13 @@ def _parquet_bytes() -> bytes:
     return buffer.getvalue()
 
 
-def test_load_day_from_a_local_source_fills_the_cache(tmp_path: Path) -> None:
+def test_load_day_reads_a_local_source_directly(tmp_path: Path) -> None:
     source = tmp_path / "source"
     (source / "daily").mkdir(parents=True)
     _frame().write_parquet(source / "daily" / "2026-10-05.parquet")
     cache = tmp_path / "cache"
     assert dataset.load_day(DAY, source=source, cache_dir=cache).equals(_frame())
-    (source / "daily" / "2026-10-05.parquet").unlink()
-    assert dataset.load_day(DAY, source=source, cache_dir=cache).equals(_frame())
+    assert not cache.exists()
 
 
 def test_load_day_missing_from_a_local_source_raises(tmp_path: Path) -> None:
@@ -41,7 +40,7 @@ def test_load_day_missing_from_a_local_source_raises(tmp_path: Path) -> None:
         dataset.load_day(DAY, source=tmp_path, cache_dir=tmp_path / "cache")
 
 
-def test_load_day_downloads_from_a_url(tmp_path: Path) -> None:
+def test_load_day_downloads_from_a_url_once(tmp_path: Path) -> None:
     requested: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -49,8 +48,10 @@ def test_load_day_downloads_from_a_url(tmp_path: Path) -> None:
         return httpx.Response(200, content=_parquet_bytes())
 
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        frame = dataset.load_day(DAY, source=REMOTE, cache_dir=tmp_path, client=client)
-    assert frame.equals(_frame())
+        first = dataset.load_day(DAY, source=REMOTE, cache_dir=tmp_path, client=client)
+        second = dataset.load_day(DAY, source=REMOTE, cache_dir=tmp_path, client=client)
+    assert first.equals(_frame())
+    assert second.equals(_frame())
     assert requested == [f"{REMOTE}/daily/2026-10-05.parquet"]
 
 

@@ -1,4 +1,4 @@
-"""Load velib-data files (daily Parquet, station information) through a local cache."""
+"""Load velib-data files (daily Parquet, station information) from GitHub or a local directory."""
 
 from __future__ import annotations
 
@@ -22,12 +22,14 @@ def load_day(
     cache_dir: Path = CACHE_DIR,
     client: httpx.Client | None = None,
 ) -> pl.DataFrame:
-    """Loads one compacted UTC day, downloading it once into the cache.
+    """Loads one compacted UTC day.
+
+    A local source is read directly. A remote one is downloaded once into the cache.
 
     Args:
         day: UTC day to load.
         source: Base URL of velib-data, or a local directory with the same layout.
-        cache_dir: Local cache directory.
+        cache_dir: Local cache directory for remote sources.
         client: HTTP client to reuse. A new one is created when None.
 
     Returns:
@@ -37,10 +39,7 @@ def load_day(
         FileNotFoundError: The day has not been compacted.
     """
     relative_path = f"daily/{day.isoformat()}.parquet"
-    cached = cache_dir / relative_path
-    if not cached.exists():
-        _store(cached, _fetch(relative_path, source, client))
-    return pl.read_parquet(cached)
+    return pl.read_parquet(_resolve(relative_path, source, cache_dir, client, refresh=False))
 
 
 def load_stations(
@@ -54,30 +53,41 @@ def load_stations(
 
     Args:
         source: Base URL of velib-data, or a local directory with the same layout.
-        cache_dir: Local cache directory.
+        cache_dir: Local cache directory for remote sources.
         client: HTTP client to reuse. A new one is created when None.
-        refresh: Download again even when the file is cached.
+        refresh: Download a remote file again even when it is cached.
 
     Returns:
         One row per station.
     """
-    cached = cache_dir / STATIONS_FILE
-    if refresh or not cached.exists():
-        _store(cached, _fetch(STATIONS_FILE, source, client))
-    return pl.read_csv(cached, schema_overrides={"station_code": pl.String})
+    path = _resolve(STATIONS_FILE, source, cache_dir, client, refresh=refresh)
+    return pl.read_csv(path, schema_overrides={"station_code": pl.String})
 
 
-def _fetch(relative_path: str, source: str | Path, client: httpx.Client | None) -> bytes:
+def _resolve(
+    relative_path: str,
+    source: str | Path,
+    cache_dir: Path,
+    client: httpx.Client | None,
+    *,
+    refresh: bool,
+) -> Path:
     if isinstance(source, Path):
         path = source / relative_path
         if not path.is_file():
             raise FileNotFoundError(path)
-        return path.read_bytes()
-    url = f"{source.rstrip('/')}/{relative_path}"
-    if client is None:
-        with gbfs.make_client() as own_client:
-            return _download(own_client, url)
-    return _download(client, url)
+        return path
+    cached = cache_dir / relative_path
+    if refresh or not cached.exists():
+        url = f"{source.rstrip('/')}/{relative_path}"
+        if client is None:
+            with gbfs.make_client() as own_client:
+                content = _download(own_client, url)
+        else:
+            content = _download(client, url)
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        cached.write_bytes(content)
+    return cached
 
 
 def _download(client: httpx.Client, url: str) -> bytes:
@@ -86,8 +96,3 @@ def _download(client: httpx.Client, url: str) -> bytes:
         raise FileNotFoundError(url)
     response.raise_for_status()
     return response.content
-
-
-def _store(path: Path, content: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(content)
