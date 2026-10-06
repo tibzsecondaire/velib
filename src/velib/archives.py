@@ -296,6 +296,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s", stream=sys.stderr
     )
+    # httpx logs every redirect with its long signed URL; one line per download is enough.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(
         prog="velib-archives", description="Import public Vélib' archives for analysis."
     )
