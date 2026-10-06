@@ -36,7 +36,7 @@
 <body>
 <header>
   <h1>__TITLE__</h1>
-  <div>Choisissez l’affichage : chaque station colorée selon son remplissage, ou une heatmap des vélos disponibles ou des stations sans vélo. Faites glisser le curseur ou lancez la lecture. Cliquez sur la courbe pour aller à un moment précis, et sur une station pour voir son détail.</div>
+  <div>Choisissez l’affichage : toute la ville colorée en interpolant le remplissage entre les stations, chaque station colorée selon son remplissage, ou une heatmap des vélos disponibles ou des stations sans vélo. Faites glisser le curseur ou lancez la lecture. Cliquez sur la courbe pour aller à un moment précis, et sur une station pour voir son détail.</div>
 </header>
 <div class="controls">
   <button id="play" type="button">▶ Lecture</button>
@@ -50,7 +50,8 @@
 </div>
 <div class="controls">
   <fieldset class="modes" aria-label="Affichage">
-    <label><input type="radio" name="mode" value="stations" checked>Stations</label>
+    <label><input type="radio" name="mode" value="field" checked>Ville interpolée</label>
+    <label><input type="radio" name="mode" value="stations">Stations</label>
     <label><input type="radio" name="mode" value="bikes">Heatmap des vélos</label>
     <label><input type="radio" name="mode" value="empty">Heatmap des stations vides</label>
   </fieldset>
@@ -79,6 +80,13 @@ import { Map as MapLibreMap, NavigationControl, Popup } from "__MAPLIBRE__maplib
 
 const MISSING = 255;
 const MODES = {
+  field: {
+    layer: "field",
+    title: "Remplissage interpolé",
+    bar: "linear-gradient(to right, #d7191c 0%, #fee08b 50%, #1a9641 100%)",
+    labels: ["vide", "moitié", "plein"],
+    note: ["moyenne des stations voisines, pondérée par la distance", "transparent loin des stations"],
+  },
   stations: {
     layer: null,
     title: "Remplissage des stations",
@@ -101,7 +109,9 @@ const MODES = {
     note: ["stations vides en moyenne sur le créneau", "zoomez pour voir les stations"],
   },
 };
-const HEAT_LAYERS = ["heat-bikes", "heat-empty"];
+const OVERLAYS = ["field", "heat-bikes", "heat-empty"];
+const FIELD = { cell: 120, sigma: 220, opaqueWeight: 0.6 };
+const RAMP = buildRamp([[0, [215, 25, 28]], [50, [254, 224, 139]], [100, [26, 150, 65]]]);
 
 const data = JSON.parse(document.getElementById("replay-data").textContent);
 const steps = data.times.length;
@@ -117,6 +127,108 @@ const spark = document.getElementById("spark");
 const cursor = document.getElementById("spark-cursor");
 slider.max = String(last);
 let mode = document.querySelector('input[name="mode"]:checked').value;
+const field = buildField(data.stations);
+
+function buildRamp(stops) {
+  return Array.from({ length: 101 }, (_, value) => {
+    const upper = stops.findIndex(([at]) => at >= value) || 1;
+    const [from, low] = stops[upper - 1];
+    const [to, high] = stops[upper];
+    return low.map((channel, index) => Math.round(channel + ((high[index] - channel) * (value - from)) / (to - from)));
+  });
+}
+
+function buildField(stations) {
+  const { cell, sigma } = FIELD;
+  const reach = 3 * sigma;
+  const lats = stations.map((station) => station[2]);
+  const lons = stations.map((station) => station[3]);
+  const metersPerLat = 110574;
+  const metersPerLon = 111320 * Math.cos(((Math.min(...lats) + Math.max(...lats)) / 2) * (Math.PI / 180));
+  const west = Math.min(...lons) - reach / metersPerLon;
+  const east = Math.max(...lons) + reach / metersPerLon;
+  const south = Math.min(...lats) - reach / metersPerLat;
+  const north = Math.max(...lats) + reach / metersPerLat;
+  const cols = Math.ceil(((east - west) * metersPerLon) / cell);
+  const rows = Math.ceil(((north - south) * metersPerLat) / cell);
+  const xs = lons.map((lon) => (lon - west) * metersPerLon);
+  const ys = lats.map((lat) => (lat - south) * metersPerLat);
+  const bucketOf = (x, y) => Math.floor(x / reach) * 4096 + Math.floor(y / reach);
+  const buckets = new Map();
+  xs.forEach((x, index) => {
+    const key = bucketOf(x, ys[index]);
+    buckets.set(key, [...(buckets.get(key) ?? []), index]);
+  });
+  const mercator = (lat) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360));
+  const latitude = (y) => (360 / Math.PI) * Math.atan(Math.exp(y)) - 90;
+  const top = mercator(north);
+  const bottom = mercator(south);
+  const offsets = new Uint32Array(cols * rows + 1);
+  const neighbours = [];
+  const weights = [];
+  for (let row = 0; row < rows; row += 1) {
+    const y = (latitude(top + ((bottom - top) * (row + 0.5)) / rows) - south) * metersPerLat;
+    for (let col = 0; col < cols; col += 1) {
+      const x = ((col + 0.5) / cols) * (east - west) * metersPerLon;
+      for (const dx of [-reach, 0, reach]) {
+        for (const dy of [-reach, 0, reach]) {
+          for (const index of buckets.get(bucketOf(x + dx, y + dy)) ?? []) {
+            const squared = (xs[index] - x) ** 2 + (ys[index] - y) ** 2;
+            if (squared < reach * reach) {
+              neighbours.push(index);
+              weights.push(Math.exp(-squared / (2 * sigma * sigma)));
+            }
+          }
+        }
+      }
+      offsets[row * cols + col + 1] = neighbours.length;
+    }
+  }
+  const canvas = Object.assign(document.createElement("canvas"), { width: cols, height: rows });
+  const context = canvas.getContext("2d");
+  return {
+    cells: cols * rows,
+    offsets,
+    neighbours: Uint16Array.from(neighbours),
+    weights: Float32Array.from(weights),
+    canvas,
+    context,
+    image: context.createImageData(cols, rows),
+    current: new Uint8Array(stations.length),
+    coordinates: [[west, north], [east, north], [east, south], [west, south]],
+  };
+}
+
+function paintField(step) {
+  const { cells, offsets, neighbours, weights, image, context, canvas, current } = field;
+  for (let index = 0; index < current.length; index += 1) {
+    current[index] = rates[index * steps + step];
+  }
+  const pixels = image.data;
+  for (let cell = 0; cell < cells; cell += 1) {
+    let sum = 0;
+    let weight = 0;
+    for (let k = offsets[cell]; k < offsets[cell + 1]; k += 1) {
+      const rate = current[neighbours[k]];
+      if (rate !== MISSING) {
+        sum += weights[k] * rate;
+        weight += weights[k];
+      }
+    }
+    const pixel = cell * 4;
+    if (weight === 0) {
+      pixels[pixel + 3] = 0;
+      continue;
+    }
+    const [red, green, blue] = RAMP[Math.round(sum / weight)];
+    pixels[pixel] = red;
+    pixels[pixel + 1] = green;
+    pixels[pixel + 2] = blue;
+    pixels[pixel + 3] = Math.min(1, weight / FIELD.opaqueWeight) * 255;
+  }
+  context.putImageData(image, 0, 0);
+  map.getSource("field").updateImage({ url: canvas.toDataURL() });
+}
 
 function unpack(text) {
   const binary = atob(text);
@@ -187,6 +299,9 @@ function show(step) {
       );
     }
   }
+  if (ready && mode === "field") {
+    paintField(step);
+  }
   const mean = data.city[step];
   stats.textContent = [
     mean === null ? null : `Remplissage moyen : ${Math.round(mean * 100)} %`,
@@ -207,8 +322,11 @@ function setMode(next) {
   if (!map.getLayer("stations")) {
     return;
   }
-  for (const id of HEAT_LAYERS) {
+  for (const id of OVERLAYS) {
     map.setLayoutProperty(id, "visibility", id === config.layer ? "visible" : "none");
+  }
+  if (mode === "field") {
+    paintField(Number(slider.value));
   }
   const opacity = config.layer === null ? 0.9 : ["interpolate", ["linear"], ["zoom"], 13.5, 0, 15, 0.9];
   map.setPaintProperty("stations", "circle-opacity", opacity);
@@ -228,6 +346,18 @@ map.on("load", () => {
       })),
     },
   });
+  const labels = map.getStyle().layers.find((layer) => layer.type === "symbol")?.id;
+  map.addSource("field", { type: "image", url: field.canvas.toDataURL(), coordinates: field.coordinates });
+  map.addLayer(
+    {
+      id: "field",
+      type: "raster",
+      source: "field",
+      layout: { visibility: "none" },
+      paint: { "raster-opacity": 0.7, "raster-fade-duration": 0 },
+    },
+    labels,
+  );
   const radius = ["interpolate", ["exponential", 2], ["zoom"], 10, 9, 15, 288];
   const fade = ["interpolate", ["linear"], ["zoom"], 14, 0.85, 16, 0];
   map.addLayer({
@@ -245,7 +375,7 @@ map.on("load", () => {
       ],
       "heatmap-opacity": fade,
     },
-  });
+  }, labels);
   map.addLayer({
     id: "heat-empty",
     type: "heatmap",
@@ -261,7 +391,7 @@ map.on("load", () => {
       ],
       "heatmap-opacity": fade,
     },
-  });
+  }, labels);
   map.addLayer({
     id: "stations",
     type: "circle",
