@@ -17,23 +17,11 @@ import plotly.graph_objects as go
 import polars as pl
 
 from velib import DATA_DIR
-from velib.archives import ARCHIVES_DIR
-from velib.dataset import DATA_SOURCE, load_day, load_stations
+from velib.archives import resolve_source
+from velib.dataset import load_day, load_stations
 from velib.heatmap import fill_rate_by_slot
 
 logger = logging.getLogger("heatmap_day")
-
-
-def resolve_source(value: str) -> str | Path:
-    """Turns the --source option into a load_day source."""
-    if value == "velib-data":
-        return DATA_SOURCE
-    for candidate in (ARCHIVES_DIR / value, Path(value)):
-        if candidate.is_dir():
-            return candidate
-    raise SystemExit(
-        f"unknown source {value!r}: import it first with `velib-archives import {value}`"
-    )
 
 
 def load_paris_day(day: date, source: str | Path) -> pl.DataFrame:

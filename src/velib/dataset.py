@@ -64,6 +64,29 @@ def load_stations(
     return pl.read_csv(path, schema_overrides={"station_code": pl.String})
 
 
+def available_days(
+    *,
+    source: str | Path = DATA_SOURCE,
+    cache_dir: Path = CACHE_DIR,
+    client: httpx.Client | None = None,
+) -> list[date]:
+    """Lists the compacted UTC days of a source, from its daily/index.csv.
+
+    A remote index is downloaded again on every call, since it changes every night.
+
+    Args:
+        source: Base URL of velib-data, or a local directory with the same layout.
+        cache_dir: Local cache directory for remote sources.
+        client: HTTP client to reuse. A new one is created when None.
+
+    Returns:
+        The days, in order.
+    """
+    path = _resolve("daily/index.csv", source, cache_dir, client, refresh=True)
+    days: list[date] = pl.read_csv(path, try_parse_dates=True).get_column("date").to_list()
+    return sorted(days)
+
+
 def _resolve(
     relative_path: str,
     source: str | Path,

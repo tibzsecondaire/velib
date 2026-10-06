@@ -22,7 +22,7 @@ from velib.collect.compact import (
     summarize,
     update_index,
 )
-from velib.dataset import load_stations
+from velib.dataset import DATA_SOURCE, load_stations
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,29 @@ MATCH_RADIUS_METERS = 100.0
 EARTH_RADIUS_METERS = 6_371_000.0
 
 _UTC = pl.Datetime("us", "UTC")
+
+
+def resolve_source(value: str) -> str | Path:
+    """Turns a source name into a load_day source.
+
+    Args:
+        value: "velib-data", the name of an imported archive, or a directory with the
+            velib-data layout.
+
+    Returns:
+        The URL of velib-data, or the local directory.
+
+    Raises:
+        SystemExit: The source is unknown.
+    """
+    if value == "velib-data":
+        return DATA_SOURCE
+    for candidate in (ARCHIVES_DIR / value, Path(value)):
+        if candidate.is_dir():
+            return candidate
+    raise SystemExit(
+        f"unknown source {value!r}: import it first with `velib-archives import {value}`"
+    )
 
 
 def normalize_kaggle(raw: pl.DataFrame) -> pl.DataFrame:

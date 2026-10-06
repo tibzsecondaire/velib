@@ -63,6 +63,18 @@ def test_load_day_turns_a_404_into_file_not_found(tmp_path: Path) -> None:
         dataset.load_day(DAY, source=REMOTE, cache_dir=tmp_path, client=client)
 
 
+def test_available_days_reads_the_daily_index(tmp_path: Path) -> None:
+    (tmp_path / "daily").mkdir()
+    (tmp_path / "daily" / "index.csv").write_text(
+        "date,snapshots,first_fetch,last_fetch,max_gap_minutes,stations,rows\n"
+        "2025-12-03,288,2025-12-03T00:00:49Z,2025-12-03T23:55:34Z,10.4,1503,431361\n"
+        "2025-12-02,287,2025-12-02T00:00:49Z,2025-12-02T23:55:34Z,10.4,1503,431361\n",
+        encoding="utf-8",
+    )
+    days = dataset.available_days(source=tmp_path, cache_dir=tmp_path / "cache")
+    assert days == [date(2025, 12, 2), date(2025, 12, 3)]
+
+
 def test_load_stations_keeps_station_codes_as_text(tmp_path: Path) -> None:
     source = tmp_path / "source"
     (source / "stations").mkdir(parents=True)

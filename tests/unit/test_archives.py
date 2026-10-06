@@ -8,8 +8,10 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from velib import archives
+from velib.dataset import DATA_SOURCE
 
 DAILY_SCHEMA = pl.Schema(
     {
@@ -84,6 +86,13 @@ def _lovasoa_raw() -> pl.DataFrame:
             "operative": [True, False, True],
         }
     )
+
+
+def test_resolve_source_accepts_velib_data_archives_and_directories(tmp_path: Path) -> None:
+    assert archives.resolve_source("velib-data") == DATA_SOURCE
+    assert archives.resolve_source(str(tmp_path)) == tmp_path
+    with pytest.raises(SystemExit, match="velib-archives import"):
+        archives.resolve_source("no-such-archive")
 
 
 def test_normalize_kaggle_matches_the_daily_schema() -> None:
