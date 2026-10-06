@@ -41,6 +41,9 @@ doc = [
 analysis = [
     "plotly>=7.1.0",
 ]
+ml = [
+    "scikit-learn>=1.9.1",
+]
 
 [tool.uv]
 environments = [
@@ -112,6 +115,10 @@ files = ["src", "tests"]
 module = "tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+
+[[tool.mypy.overrides]]
+module = ["sklearn", "sklearn.*"]
+ignore_missing_imports = true
 
 # ===== pytest =====
 [tool.pytest.ini_options]
