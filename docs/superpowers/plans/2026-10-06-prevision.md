@@ -420,9 +420,10 @@ def test_evaluate_reports_errors_and_empty_station_detection() -> None:
     assert scores["count"] == 4
 
 
-def test_model_learns_the_daily_pattern_better_than_persistence() -> None:
+@pytest.mark.parametrize("loss", ["absolute_error", "squared_error"])
+def test_model_learns_the_daily_pattern_better_than_persistence(loss: str) -> None:
     examples = _examples(2000)
-    model = train(examples, max_iter=60)
+    model = train(examples, max_iter=60, loss=loss)
     prediction = predict(model, examples)
     model_mae = evaluate(examples.get_column("target"), prediction, examples.get_column("total"))[
         "mae"
@@ -500,17 +501,22 @@ def feature_matrix(examples: pl.DataFrame) -> npt.NDArray[np.float64]:
     return examples.select(pl.col(name).cast(pl.Float64) for name in FEATURES).to_numpy()
 
 
-def train(examples: pl.DataFrame, *, max_iter: int = 300) -> HistGradientBoostingRegressor:
+def train(
+    examples: pl.DataFrame, *, max_iter: int = 300, loss: str = "absolute_error"
+) -> HistGradientBoostingRegressor:
     """Fits a model of the change of bikes between t and t + horizon.
 
     Args:
         examples: Training examples with FEATURES, bikes and target.
         max_iter: Number of boosting iterations.
+        loss: "absolute_error" forecasts the median change and minimises the MAE;
+            "squared_error" forecasts the mean change and minimises the RMSE.
 
     Returns:
         The fitted model.
     """
     model = HistGradientBoostingRegressor(
+        loss=loss,
         max_iter=max_iter,
         learning_rate=0.08,
         max_leaf_nodes=63,
@@ -711,7 +717,13 @@ def test_evaluate_writes_metrics_and_report(tmp_path: Path) -> None:
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
     assert sorted(metrics["horizons"]) == ["15", "60"]
     scores = metrics["horizons"]["60"]["scores"]
-    assert set(scores) == {"persistence", "profile", "adjusted persistence", "model"}
+    assert set(scores) == {
+        "persistence",
+        "profile",
+        "adjusted persistence",
+        "model",
+        "model (squared loss)",
+    }
     assert metrics["horizons"]["60"]["importance"]
     assert "| 60 min |" in (out / "report.md").read_text(encoding="utf-8")
 ```
@@ -865,8 +877,10 @@ def run_evaluation(
             test_rows.height,
         )
         model = train(train_rows, max_iter=max_iter)
+        squared_model = train(train_rows, max_iter=max_iter, loss="squared_error")
         predictions = {name: forecast(test_rows) for name, forecast in BASELINES.items()}
         predictions["model"] = predict(model, test_rows)
+        predictions["model (squared loss)"] = predict(squared_model, test_rows)
         truth = test_rows.get_column("target")
         total = test_rows.get_column("total")
         entry: dict[str, Any] = {
@@ -886,7 +900,7 @@ def run_evaluation(
 def render_report(report: dict[str, Any]) -> str:
     """Formats the report as Markdown, with one table per measure."""
     horizons = report["horizons"]
-    methods = ["persistence", "profile", "adjusted persistence", "model"]
+    methods = ["persistence", "profile", "adjusted persistence", "model", "model (squared loss)"]
     lines = [
         f"# Forecast evaluation on {report['source']}",
         "",

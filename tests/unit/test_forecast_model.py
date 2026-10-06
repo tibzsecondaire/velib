@@ -54,9 +54,10 @@ def test_evaluate_reports_errors_and_empty_station_detection() -> None:
     assert scores["count"] == 4
 
 
-def test_model_learns_the_daily_pattern_better_than_persistence() -> None:
+@pytest.mark.parametrize("loss", ["absolute_error", "squared_error"])
+def test_model_learns_the_daily_pattern_better_than_persistence(loss: str) -> None:
     examples = _examples(2000)
-    model = train(examples, max_iter=60)
+    model = train(examples, max_iter=60, loss=loss)
     prediction = predict(model, examples)
     model_mae = evaluate(examples.get_column("target"), prediction, examples.get_column("total"))[
         "mae"

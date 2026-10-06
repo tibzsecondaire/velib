@@ -15,17 +15,22 @@ def feature_matrix(examples: pl.DataFrame) -> npt.NDArray[np.float64]:
     return examples.select(pl.col(name).cast(pl.Float64) for name in FEATURES).to_numpy()
 
 
-def train(examples: pl.DataFrame, *, max_iter: int = 300) -> HistGradientBoostingRegressor:
+def train(
+    examples: pl.DataFrame, *, max_iter: int = 300, loss: str = "absolute_error"
+) -> HistGradientBoostingRegressor:
     """Fits a model of the change of bikes between t and t + horizon.
 
     Args:
         examples: Training examples with FEATURES, bikes and target.
         max_iter: Number of boosting iterations.
+        loss: "absolute_error" forecasts the median change and minimises the MAE;
+            "squared_error" forecasts the mean change and minimises the RMSE.
 
     Returns:
         The fitted model.
     """
     model = HistGradientBoostingRegressor(
+        loss=loss,
         max_iter=max_iter,
         learning_rate=0.08,
         max_leaf_nodes=63,

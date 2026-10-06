@@ -98,6 +98,12 @@ def test_evaluate_writes_metrics_and_report(tmp_path: Path) -> None:
     metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
     assert sorted(metrics["horizons"]) == ["15", "60"]
     scores = metrics["horizons"]["60"]["scores"]
-    assert set(scores) == {"persistence", "profile", "adjusted persistence", "model"}
+    assert set(scores) == {
+        "persistence",
+        "profile",
+        "adjusted persistence",
+        "model",
+        "model (squared loss)",
+    }
     assert metrics["horizons"]["60"]["importance"]
     assert "| 60 min |" in (out / "report.md").read_text(encoding="utf-8")

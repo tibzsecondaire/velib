@@ -140,8 +140,10 @@ def run_evaluation(
             test_rows.height,
         )
         model = train(train_rows, max_iter=max_iter)
+        squared_model = train(train_rows, max_iter=max_iter, loss="squared_error")
         predictions = {name: forecast(test_rows) for name, forecast in BASELINES.items()}
         predictions["model"] = predict(model, test_rows)
+        predictions["model (squared loss)"] = predict(squared_model, test_rows)
         truth = test_rows.get_column("target")
         total = test_rows.get_column("total")
         entry: dict[str, Any] = {
@@ -161,7 +163,7 @@ def run_evaluation(
 def render_report(report: dict[str, Any]) -> str:
     """Formats the report as Markdown, with one table per measure."""
     horizons = report["horizons"]
-    methods = ["persistence", "profile", "adjusted persistence", "model"]
+    methods = ["persistence", "profile", "adjusted persistence", "model", "model (squared loss)"]
     lines = [
         f"# Forecast evaluation on {report['source']}",
         "",
