@@ -76,10 +76,14 @@ def resolve_source(value: str) -> str | Path:
 def normalize_kaggle(raw: pl.DataFrame) -> pl.DataFrame:
     """Converts the Kaggle table to the daily schema of velib-data.
 
-    The archive has no free docks: they are estimated as capacity minus bikes.
+    The archive has no free docks: they are estimated as capacity minus bikes. A few snapshots
+    lost the split between mechanical and electric bikes: every station shows 0 of each while
+    its total is right. These snapshots are dropped.
     """
+    by_type = (pl.col("mechanical") + pl.col("ebike")).sum().over("ts_utc")
+    lost_types = (by_type == 0) & (pl.col("bikes").sum().over("ts_utc") > 0)
     return _daily_frame(
-        raw,
+        raw.filter(~lost_types),
         fetched_at=pl.col("ts_utc").dt.replace_time_zone("UTC").dt.cast_time_unit("us"),
         ebike="ebike",
         docks=pl.col("capacity") - pl.col("bikes"),

@@ -109,6 +109,22 @@ def test_normalize_kaggle_estimates_docks_and_reads_the_status() -> None:
     assert frame.get_column("is_renting").to_list() == [True, False, True]
 
 
+def test_normalize_kaggle_drops_the_snapshots_that_lost_the_bike_types() -> None:
+    complete, lost = datetime(2025, 12, 2, 0, 0, 49), datetime(2025, 12, 2, 0, 5, 50)
+    raw = pl.concat([_kaggle_raw(), _kaggle_raw()]).with_columns(
+        pl.Series("ts_utc", [complete] * 3 + [lost] * 3, dtype=pl.Datetime("ns")),
+        pl.Series("station_id", [6245, 6293, 6294] * 2),
+        pl.Series("bikes", [16, 0, 7, 16, 0, 7]),
+        pl.Series("mechanical", [10, 0, 5, 0, 0, 0]),
+        pl.Series("ebike", [6, 0, 2, 0, 0, 0]),
+    )
+    frame = archives.normalize_kaggle(raw)
+    assert frame.get_column("fetched_at").unique().to_list() == [
+        datetime(2025, 12, 2, 0, 0, 49, tzinfo=UTC)
+    ]
+    assert frame.height == 3
+
+
 def test_kaggle_stations_and_weather() -> None:
     raw = _kaggle_raw()
     stations = archives.kaggle_stations(raw)
