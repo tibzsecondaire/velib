@@ -14,6 +14,7 @@ theme:
 nav:
   - Home: index.md
   - Live map: map.md
+  - Forecasting: forecasting.md
   - Data: data.md
 
 exclude_docs: |

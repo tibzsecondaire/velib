@@ -43,6 +43,8 @@ modèle et des références sur les 4 jours de test. Le modèle doit battre la m
 ## Modèle
 
 - `HistGradientBoostingRegressor` de scikit-learn, un par horizon, qui prévoit la variation de vélos entre t et t + h
+- 2 versions par horizon : « modèle », entraîné sur l'erreur absolue (il prévoit la variation médiane et vise la
+  MAE), et « modèle (erreur quadratique) », qui prévoit la variation moyenne et vise la RMSE
 - prévision finale : vélos de t + variation prévue, bornée entre 0 et la capacité (vélos + places libres à t)
 - réglages fixes et sans tirage aléatoire : 300 itérations, pas de 0,08, 63 feuilles au plus, régularisation L2 de 1
 - apprentissage sur un instant sur 3 (toutes les 15 minutes) pour limiter le volume ; test sur tous les instants
@@ -98,3 +100,27 @@ Une page « Forecasting » du site résume la méthode et les résultats agrég�
 
 - l'optimisation des réglages, d'autres familles de modèles et la prévision météo
 - l'application aux données de `velib-data`, quand elles couvriront plusieurs semaines
+
+## Résultats du 6 octobre 2026
+
+MAE sur les 4 jours de test, en vélos :
+
+| Horizon | persistance | profil | persistance corrigée | modèle | modèle (erreur quadratique) |
+|---|---|---|---|---|---|
+| 15 min | 0,83 | 5,04 | 0,98 | 0,83 | 0,94 |
+| 30 min | 1,23 | 5,04 | 1,40 | 1,21 | 1,30 |
+| 60 min | 1,75 | 5,04 | 1,85 | 1,67 | 1,76 |
+| 120 min | 2,63 | 5,03 | 2,56 | 2,29 | 2,36 |
+| 180 min | 3,36 | 5,02 | 3,05 | 2,70 | 2,78 |
+
+- Entraîné sur l'erreur quadratique, le modèle perdait contre la persistance sur la MAE jusqu'à 30 minutes : il
+  prévoit la variation moyenne, alors que 52 % des stations ne bougent pas en 15 minutes. Entraîné sur l'erreur
+  absolue, il égale la persistance à 15 minutes et la bat ensuite, de 2 % à 30 minutes à 20 % à 3 heures.
+- Le critère de réussite est donc atteint à partir de 30 minutes. À 15 minutes, la persistance est quasiment
+  optimale pour la MAE avec ces données.
+- La version à erreur quadratique reste la meilleure sur la RMSE à 15 et 30 minutes (1,94 et 2,30 vélos).
+- En semaine, le gain à 3 heures dépasse 30 % (2,55 contre 3,75 vélos le lundi 15 décembre). Le week-end, le modèle
+  égale à peine la persistance : l'apprentissage ne contenait qu'un week-end.
+- Au-delà d'une heure, la détection des stations vides est moins bonne que celle de la persistance (F1 de 0,18
+  contre 0,27 à 3 heures). Il faudra un modèle de classification dédié.
+- Le profil de la station pèse le plus ; la météo n'apporte presque rien sur ces deux semaines douces.

@@ -10,7 +10,7 @@ data feeds. The history is published in
 ## What you can find here
 
 - [Live map](map.md): every station, coloured by how full it is in the latest snapshot.
+- [Forecasting](forecasting.md): how well a first model forecasts the bikes of each station.
 - [Data](data.md): where the data comes from, what the files contain and how to load them.
 
-Analyses of the trends will follow once a few weeks of history have been collected, then
-experiments with machine learning, such as predicting the availability of bikes.
+Analyses of the trends will follow once a few weeks of history have been collected.

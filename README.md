@@ -28,6 +28,12 @@ lists the available feeds:
 archives to the velib-data layout in `data/archives/`. See the Data page of the website for their
 licenses and limits.
 
+## Forecasting
+
+`uv run --group ml velib-forecast evaluate --source kaggle` trains one model per horizon, from
+15 minutes to 3 hours, on the imported Kaggle archive and compares it with simple references.
+See the Forecasting page of the website for the results.
+
 ## Getting started
 
 ### Prerequisites
