@@ -3,6 +3,7 @@
 Usage:
     uv run --group analysis python scripts/heatmap_day.py 2026-10-06
     uv run --group analysis python scripts/heatmap_day.py --source kaggle 2025-12-10
+    uv run --group analysis python scripts/heatmap_day.py --source lovasoa --slot 30m 2021-03-25
 """
 
 from __future__ import annotations
@@ -48,9 +49,9 @@ def load_paris_day(day: date, source: str | Path) -> pl.DataFrame:
     return pl.concat(frames)
 
 
-def build_figure(day: date, source: str | Path, label: str) -> go.Figure:
-    """Builds the heatmap: one row per station, one column per 15-minute slot."""
-    rates = fill_rate_by_slot(load_paris_day(day, source), day).with_columns(
+def build_figure(day: date, source: str | Path, label: str, slot: str = "15m") -> go.Figure:
+    """Builds the heatmap: one row per station, one column per time slot."""
+    rates = fill_rate_by_slot(load_paris_day(day, source), day, slot=slot).with_columns(
         pl.col("slot").dt.strftime("%H:%M").alias("label")
     )
     wide = rates.pivot(
@@ -81,6 +82,8 @@ def build_figure(day: date, source: str | Path, label: str) -> go.Figure:
         )
     )
     suffix = "" if label == "velib-data" else f" · archive {label}"
+    if slot != "15m":
+        suffix += f" · créneaux de {slot}"
     figure.update_layout(
         title=f"Remplissage des stations Vélib' le {day:%d/%m/%Y} (heure de Paris){suffix}",
         height=1600,
@@ -99,13 +102,20 @@ def main() -> None:
         default="velib-data",
         help="velib-data (default), an imported archive such as kaggle or lovasoa, or a directory.",
     )
+    parser.add_argument(
+        "--slot",
+        default="15m",
+        help="Slot length as a polars duration, for example 30m or 1h for sparse archives.",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     label = Path(args.source).name
     prefix = "heatmap" if label == "velib-data" else f"heatmap_{label}"
+    if args.slot != "15m":
+        prefix += f"_{args.slot}"
     output = DATA_DIR / "figures" / f"{prefix}_{args.day.isoformat()}.html"
     output.parent.mkdir(parents=True, exist_ok=True)
-    build_figure(args.day, resolve_source(args.source), label).write_html(
+    build_figure(args.day, resolve_source(args.source), label, args.slot).write_html(
         output, include_plotlyjs="cdn"
     )
     logger.info("wrote %s", output)
